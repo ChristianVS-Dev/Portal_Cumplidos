@@ -1,0 +1,26 @@
+# Contexto de build Docker (api/web) — no afecta volúmenes en runtime
+node_modules
+**/node_modules
+dist
+**/dist
+uploads
+**/.env
+.env
+.env.docker
+.git
+.gitignore
+.cursor
+agent-transcripts
+terminals
+dist-deploy
+*.zip
+Portal_Cumplidos.html
+cursor_logistics_management_portal_deve.md
+portal_cumplidos_doc.md
+docker-compose.dev.yml
+docker-compose.yml
+package.json
+scripts
+README.md
+**/*.md
+docs

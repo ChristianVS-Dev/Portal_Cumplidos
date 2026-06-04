@@ -1,0 +1,95 @@
+services:
+  # MySQL local solo para dev sin BD remota: docker compose --profile local-mysql up -d
+  mysql:
+    profiles: ["local-mysql"]
+    image: mysql:8.0
+    container_name: portal_cumplidos_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: portal_cumplidos
+      MYSQL_USER: ${MYSQL_USER:-portal_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-portal_pass}
+    # Puerto 33070 en el host (evita conflicto con MySQL del sistema en 3306)
+    ports:
+      - "127.0.0.1:33070:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Solo CREATE TABLE IF NOT EXISTS (MySQL ya crea MYSQL_DATABASE en primer arranque)
+      - ./backend/sql/tables.sql:/docker-entrypoint-initdb.d/01-tables.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: portal_cumplidos_api
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+      MYSQL_HOST: ${MYSQL_HOST:-mysql}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_USER: ${MYSQL_USER:-portal_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-portal_pass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-portal_cumplidos}
+      MYSQL_AUTO_MIGRATE: ${MYSQL_AUTO_MIGRATE:-true}
+      MYSQL_CREATE_DATABASE: ${MYSQL_CREATE_DATABASE:-false}
+      METRICAS_USE_DB: ${METRICAS_USE_DB:-false}
+      PERSISTIR_CUMPLIDOS_MYSQL: ${PERSISTIR_CUMPLIDOS_MYSQL:-false}
+      ENTREGAS_API_ENABLED: ${ENTREGAS_API_ENABLED:-true}
+      ENTREGAS_USE_MOCK: ${ENTREGAS_USE_MOCK:-true}
+      ENTREGAS_API_BASE_URL: ${ENTREGAS_API_BASE_URL:-http://10.10.10.5:8100/api/entregas}
+      ENTREGAS_API_TOKEN: ${ENTREGAS_API_TOKEN:-}
+      ENTREGAS_API_SEND_TOKEN_ON_READ: ${ENTREGAS_API_SEND_TOKEN_ON_READ:-true}
+      ENTREGAS_TIMEOUT_MS: ${ENTREGAS_TIMEOUT_MS:-20000}
+      TRANSPORTES_ENABLED: ${TRANSPORTES_ENABLED:-true}
+      TRANSPORTES_USE_MOCK: ${TRANSPORTES_USE_MOCK:-true}
+      TRANSPORTES_API_BASE_URL: ${TRANSPORTES_API_BASE_URL:-http://10.10.10.5:8100/api/transportes}
+      TRANSPORTES_TIMEOUT_MS: ${TRANSPORTES_TIMEOUT_MS:-20000}
+      SAP_USE_MOCK: ${SAP_USE_MOCK:-true}
+      SAP_BASE_URL: ${SAP_BASE_URL:-}
+      SAP_USER: ${SAP_USER:-}
+      SAP_PASSWORD: ${SAP_PASSWORD:-}
+      SAP_CLIENT: ${SAP_CLIENT:-}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080,http://localhost:8081,http://localhost:19080}
+      PORTAL_API_KEY: ${PORTAL_API_KEY:-}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-150}
+      RATE_LIMIT_BUSCAR_MAX: ${RATE_LIMIT_BUSCAR_MAX:-40}
+      RATE_LIMIT_ADJUNTOS_MAX: ${RATE_LIMIT_ADJUNTOS_MAX:-60}
+      UPLOAD_DIR: /app/uploads
+      SOPORTE_EMAIL: ${SOPORTE_EMAIL:-soporte.logistica@grupodecor.com}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - uploads_data:/app/uploads
+    env_file:
+      - .env.docker
+    depends_on:
+      mysql:
+        condition: service_healthy
+        required: false
+    expose:
+      - "3001"
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_PORTAL_API_KEY: ${PORTAL_API_KEY:-}
+    container_name: portal_cumplidos_web
+    restart: unless-stopped
+    ports:
+      - "${WEB_HOST_PORT:-19080}:80"
+    depends_on:
+      - api
+
+volumes:
+  mysql_data:
+  uploads_data:

@@ -1,0 +1,36 @@
+# Secretos y entorno local (crear en servidor desde .env.docker.example)
+.env
+.env.docker
+.env.local
+.env.*.local
+
+# Dependencias y artefactos de build
+node_modules/
+**/node_modules/
+frontend/dist/
+backend/uploads/
+uploads/
+
+# Logs y caché
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# IDE / Cursor (no necesarios en servidor)
+.cursor/
+.agent-transcripts/
+**/.vscode/
+!.vscode/extensions.json
+
+# Prototipos y documentación local (no subir a Git ni al servidor)
+docs/
+Portal_Cumplidos.html
+cursor_logistics_management_portal_deve.md
+portal_cumplidos_doc.md
+
+# Paquetes generados para subir al servidor
+dist-deploy/
+*.zip
+!backend/package-lock.json
+!frontend/package-lock.json
