@@ -24,6 +24,30 @@ services:
       retries: 12
       start_period: 20s
 
+  # Túnel SSH → MySQL Intiva (pruebas locales). Uso: --profile intiva
+  intiva-tunnel:
+    profiles: ["intiva"]
+    build:
+      context: ./docker/intiva-tunnel
+      dockerfile: Dockerfile
+    container_name: portal_cumplidos_intiva_tunnel
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      SSH_TUNNEL_HOST: ${SSH_TUNNEL_HOST:-172.16.29.5}
+      SSH_TUNNEL_PORT: ${SSH_TUNNEL_PORT:-22}
+      SSH_TUNNEL_USER: ${SSH_TUNNEL_USER:-soporte}
+      SSH_TUNNEL_PASSWORD: ${SSH_TUNNEL_PASSWORD:-}
+      MYSQL_REMOTE_HOST: ${MYSQL_REMOTE_HOST:-127.0.0.1}
+      MYSQL_REMOTE_PORT: ${MYSQL_REMOTE_PORT:-3306}
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "3306"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 25s
+
   api:
     build:
       context: ./backend
@@ -72,6 +96,9 @@ services:
       - .env.docker
     depends_on:
       mysql:
+        condition: service_healthy
+        required: false
+      intiva-tunnel:
         condition: service_healthy
         required: false
     expose:
