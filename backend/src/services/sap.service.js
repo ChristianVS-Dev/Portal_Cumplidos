@@ -1,7 +1,12 @@
 import fs from 'fs';
 import { Blob } from 'buffer';
 import { config } from '../config/index.js';
-import { entregasApiAuthHeaders, urlAdjuntosEntrega } from '../utils/entregasApiClient.js';
+import {
+  entregasApiAuthHeaders,
+  mensajeError401Entregas,
+  urlAdjuntosEntrega,
+  urlIntentoEntrega,
+} from '../utils/entregasApiClient.js';
 import { labelsMotivosDesdeRegistro } from '../domain/motivos-no-contesto.js';
 import { labelsVisitasParaSap } from '../domain/visitas-no-contesto.js';
 
@@ -194,15 +199,116 @@ export async function enviarAdjuntoSap({ numeroEntrega, archivo, descripcion, ti
   return enviarAdjuntoSapReal({ numeroEntrega, archivo, descripcion, tipo });
 }
 
-export async function actualizarEstadoEntregaSap(numeroEntrega, modo) {
+function entregadoDesdeModo(modo) {
+  return modo === 'ok';
+}
+
+/**
+ * POST {ENTREGAS_API_BASE_URL}/:vbeln/intento
+ * Body: { entregado: true|false } — ok → true (X en SAP), nov → false (espacio)
+ */
+async function registrarIntentoEntregaSapReal(numeroEntrega, modo) {
+  if (!config.entregasExterna.token) {
+    throw Object.assign(
+      new Error(
+        'Falta token para API de entregas. Configure PORTAL_API_KEY o ENTREGAS_API_TOKEN en .env.docker'
+      ),
+      { status: 503, code: 'SAP_TOKEN_MISSING' }
+    );
+  }
+
+  const entregado = entregadoDesdeModo(modo);
+  const url = urlIntentoEntrega(numeroEntrega);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), config.entregasExterna.timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...entregasApiAuthHeaders(),
+      },
+      body: JSON.stringify({ entregado }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    const texto = await res.text().catch(() => '');
+    let json = {};
+    if (texto) {
+      try {
+        json = JSON.parse(texto);
+      } catch {
+        json = { raw: texto };
+      }
+    }
+
+    if (res.status === 401) {
+      throw Object.assign(new Error(mensajeError401Entregas(401, json)), {
+        status: 401,
+        code: 'SAP_INTENTO_AUTH',
+      });
+    }
+
+    if (res.status === 201 && json.ok === true) {
+      console.info('[SAP intento] POST ok', url, `intento=${json.intento}`, json.mensaje || '');
+      return {
+        ok: true,
+        estado: 'ok',
+        logId: json.logId,
+        intento: json.intento,
+        mensaje: json.mensaje || 'Intento registrado correctamente',
+        entregado,
+        numeroEntrega,
+      };
+    }
+
+    const msg = json.mensaje || json.message || json.raw || `API respondió ${res.status}`;
+    console.error('[SAP intento] POST falló', res.status, url, msg);
+    throw Object.assign(new Error(msg), {
+      status: res.status >= 400 && res.status < 600 ? res.status : 502,
+      code: 'SAP_INTENTO_HTTP',
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.name === 'AbortError') {
+      throw Object.assign(new Error('Tiempo de espera agotado al registrar intento en SAP'), {
+        status: 504,
+      });
+    }
+    if (err.status) throw err;
+    throw Object.assign(new Error(`No se pudo conectar con SAP intento: ${err.message}`), {
+      status: 503,
+    });
+  }
+}
+
+/** Registra intento de entrega (RFC Z_SD_LOG_INTENTO_ENTREGA vía API). SAP calcula el número de intento. */
+export async function registrarIntentoEntregaSap(numeroEntrega, modo) {
   if (config.sap.useMock) {
+    await new Promise((r) => setTimeout(r, 200));
+    const entregado = entregadoDesdeModo(modo);
+    console.warn('[SAP intento] MOCK activo — no se llamó a la API real. SAP_USE_MOCK=false para enviar.');
     return {
       ok: true,
+      estado: 'ok',
+      logId: `MOCK-LOG-${Date.now()}`,
+      intento: '001',
+      mensaje: `Intento registrado correctamente (simulado, entregado=${entregado})`,
+      entregado,
       numeroEntrega,
-      estado: modo === 'ok' ? 'ENTREGADO' : 'NOVEDAD',
+      simulado: true,
     };
   }
-  throw new Error('Integración SAP estados no configurada');
+
+  return registrarIntentoEntregaSapReal(numeroEntrega, modo);
+}
+
+/** @deprecated Alias — usar registrarIntentoEntregaSap */
+export async function actualizarEstadoEntregaSap(numeroEntrega, modo) {
+  return registrarIntentoEntregaSap(numeroEntrega, modo);
 }
 
 /** Texto recomendado para el campo descripcion del endpoint SAP */

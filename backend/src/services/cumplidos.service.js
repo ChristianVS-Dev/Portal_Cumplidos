@@ -564,17 +564,41 @@ export async function completarRegistro(cumplidoId, datos) {
     }
   );
 
+  let syncIntentoSap = null;
   try {
-    const sapEstado = await sapService.actualizarEstadoEntregaSap(actual.numero_entrega, modo);
+    const sapResult = await sapService.registrarIntentoEntregaSap(actual.numero_entrega, modo);
+    const textoSap = [sapResult.mensaje, sapResult.logId ? `logId=${sapResult.logId}` : null, sapResult.intento ? `intento=${sapResult.intento}` : null]
+      .filter(Boolean)
+      .join(' · ');
     await query(
       `UPDATE pc_registro_cumplido SET sap_estado = :estado, sap_mensaje = :mensaje WHERE id = :id`,
-      { id: cumplidoId, estado: sapEstado.estado, mensaje: 'Estado actualizado en SAP' }
+      {
+        id: cumplidoId,
+        estado: sapResult.ok ? 'ok' : 'error',
+        mensaje: textoSap.slice(0, 500),
+      }
     );
+    syncIntentoSap = {
+      estado: sapResult.ok ? 'ok' : 'error',
+      mensaje: sapResult.mensaje,
+      logId: sapResult.logId || null,
+      intento: sapResult.intento || null,
+      entregado: sapResult.entregado,
+      simulado: Boolean(sapResult.simulado),
+    };
   } catch (err) {
     await query(
       `UPDATE pc_registro_cumplido SET sap_estado = 'error', sap_mensaje = :mensaje WHERE id = :id`,
       { id: cumplidoId, mensaje: err.message?.slice(0, 500) }
     );
+    syncIntentoSap = {
+      estado: 'error',
+      mensaje: err.message,
+      logId: null,
+      intento: null,
+      entregado: modo === 'ok',
+      simulado: false,
+    };
   }
 
   const adjuntos = await query(`SELECT id, estado_sync_sap FROM pc_adjunto WHERE registro_cumplido_id = :id`, {
@@ -596,6 +620,7 @@ export async function completarRegistro(cumplidoId, datos) {
     modo,
     estadoResultado,
     adjuntos,
+    syncIntentoSap,
   };
 }
 

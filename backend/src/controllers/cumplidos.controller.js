@@ -36,23 +36,43 @@ export async function crear(req, res, next) {
         ? `Entrega ${body.numeroEntrega} registrada correctamente`
         : `No contestó ${body.numeroEntrega} registrado correctamente`;
 
-    let advertenciaSap = null;
+    const syncIntentoSap = resultado.syncIntentoSap;
+    const advertenciasSap = [];
+
     if (syncSap?.estado === 'error') {
-      advertenciaSap = syncSap.mensaje || 'No se pudo enviar el ZIP a la API de adjuntos';
-      mensaje = `${mensaje}. Los datos quedaron guardados en el portal, pero el envío a SAP falló.`;
+      advertenciasSap.push(syncSap.mensaje || 'No se pudo enviar el ZIP a la API de adjuntos');
     } else if (syncSap?.simulado) {
-      advertenciaSap =
-        'Modo simulación (SAP_USE_MOCK=true): el ZIP no se envió a la API real de adjuntos.';
+      advertenciasSap.push(
+        'Modo simulación (SAP_USE_MOCK=true): el ZIP no se envió a la API real de adjuntos.'
+      );
     }
+
+    if (syncIntentoSap?.estado === 'error') {
+      advertenciasSap.push(
+        syncIntentoSap.mensaje || 'No se pudo registrar el intento de entrega en SAP'
+      );
+    } else if (syncIntentoSap?.simulado) {
+      advertenciasSap.push(
+        'Modo simulación (SAP_USE_MOCK=true): el intento de entrega no se envió a la API real.'
+      );
+    }
+
+    if (advertenciasSap.length) {
+      mensaje = `${mensaje}. Los datos quedaron guardados en el portal, pero hubo problemas con SAP.`;
+    }
+
+    const advertenciaSap = advertenciasSap.length ? advertenciasSap.join(' ') : null;
 
     res.status(201).json({
       ok: true,
       registroGuardado: true,
       syncSapOk: syncSap?.estado === 'ok',
+      syncIntentoSapOk: syncIntentoSap?.estado === 'ok',
       data: resultado,
       mensaje,
       advertenciaSap,
       syncSap: syncSap || null,
+      syncIntentoSap: syncIntentoSap || null,
     });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ ok: false, error: err.message });
@@ -114,13 +134,26 @@ export async function completar(req, res, next) {
     const body = req.body;
     validarCompletar(body);
     const resultado = await cumplidosService.completarRegistro(req.params.id, body);
+    let mensaje =
+      body.modo === 'ok'
+        ? `Entrega ${resultado.numeroEntrega} registrada correctamente`
+        : `No contestó ${resultado.numeroEntrega} guardado`;
+    let advertenciaSap = null;
+    if (resultado.syncIntentoSap?.estado === 'error') {
+      advertenciaSap =
+        resultado.syncIntentoSap.mensaje || 'No se pudo registrar el intento de entrega en SAP';
+      mensaje = `${mensaje}. Los datos quedaron guardados en el portal, pero hubo problemas con SAP.`;
+    } else if (resultado.syncIntentoSap?.simulado) {
+      advertenciaSap =
+        'Modo simulación (SAP_USE_MOCK=true): el intento de entrega no se envió a la API real.';
+    }
     res.json({
       ok: true,
       data: resultado,
-      mensaje:
-        body.modo === 'ok'
-          ? `Entrega ${resultado.numeroEntrega} registrada correctamente`
-          : `No contestó ${resultado.numeroEntrega} guardado`,
+      mensaje,
+      advertenciaSap,
+      syncIntentoSapOk: resultado.syncIntentoSap?.estado === 'ok',
+      syncIntentoSap: resultado.syncIntentoSap || null,
     });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ ok: false, error: err.message });
