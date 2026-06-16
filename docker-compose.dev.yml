@@ -1,6 +1,10 @@
 # Desarrollo: front con Vite + hot reload (sin rebuild por cada cambio).
-# Uso: npm run docker:dev
+# Uso: npm run docker:dev  |  APK/emulador: npm run docker:dev:all + API en :3001
 services:
+  api:
+    ports:
+      - "3001:3001"
+
   web:
     build:
       context: ./frontend

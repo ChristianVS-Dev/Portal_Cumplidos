@@ -1,4 +1,6 @@
-const BASE = import.meta.env.VITE_API_URL || '/api/v1';
+import { getApiBaseUrl } from '../platform/config.js';
+
+const BASE = getApiBaseUrl();
 const PORTAL_API_KEY = import.meta.env.VITE_PORTAL_API_KEY || '';
 
 function apiHeaders(extra = {}) {
@@ -54,11 +56,26 @@ async function request(path, options = {}) {
 
 export async function checkApiHealth() {
   try {
-    const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) });
+    const res = await fetch(`${BASE}/health`, {
+      signal: AbortSignal.timeout(8000),
+      headers: apiHeaders(),
+    });
+    const debugHealth = import.meta.env.DEV || import.meta.env.MODE === 'mobile';
+    if (debugHealth) {
+      console.info('[health]', BASE, res.status, res.ok);
+    }
     return res.ok;
-  } catch {
+  } catch (err) {
+    const debugHealth = import.meta.env.DEV || import.meta.env.MODE === 'mobile';
+    if (debugHealth) {
+      console.warn('[health] falló', BASE, err?.message || err);
+    }
     return false;
   }
+}
+
+export function getConfiguredApiBase() {
+  return BASE;
 }
 
 /** Consulta transporte (API externa) o SAP legacy */

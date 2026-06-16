@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ApiError,
   buscarEntrega,
-  checkApiHealth,
   crearCumplido,
   actualizarBorrador,
   obtenerDetalleEntrega,
+  getConfiguredApiBase,
 } from '../api/client.js';
+import { isNativeApp } from '../platform/config.js';
+import { useAppConnectivity } from '../hooks/useAppConnectivity.js';
 import ConnectionBanner from '../components/ConnectionBanner.jsx';
 import WizardStepper from '../components/WizardStepper.jsx';
 import WizardNav from '../components/WizardNav.jsx';
@@ -61,7 +63,8 @@ export default function PortalPage() {
   const clock = useClock();
   const [paso, setPaso] = useState(1);
   const [animDir, setAnimDir] = useState('forward');
-  const [apiOnline, setApiOnline] = useState(true);
+  const { apiOnline, deviceOnline, apiReachable, refreshConnectivity, markApiOnline, markApiOffline } =
+    useAppConnectivity();
   const [modo, setModo] = useState('ok');
   const [sapData, setSapData] = useState(null);
   const [cliente, setCliente] = useState(null);
@@ -108,13 +111,15 @@ export default function PortalPage() {
   const modoNovBloqueado = entregaExitosaCerrada || maxIntentosNovAlcanzado;
 
   useEffect(() => {
-    (async () => {
-      const online = await checkApiHealth();
-      setApiOnline(online);
-    })();
     const today = new Date().toISOString().slice(0, 10);
     setForm((f) => ({ ...f, fec: f.fec || today }));
   }, []);
+
+  useEffect(() => {
+    const onResume = () => refreshConnectivity();
+    window.addEventListener('portal:resume', onResume);
+    return () => window.removeEventListener('portal:resume', onResume);
+  }, [refreshConnectivity]);
 
   const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -276,7 +281,7 @@ export default function PortalPage() {
             `${res.mensaje || ''} · Solo consulta (sin MySQL). Active PERSISTIR_CUMPLIDOS_MYSQL para registrar.`
           );
         }
-        setApiOnline(true);
+        markApiOnline();
         return;
       }
 
@@ -290,7 +295,7 @@ export default function PortalPage() {
       setPendienteSelId(d.sap?.numeroEntrega || n);
       aplicarDatosConductorApi(d, null);
       setSyncMsg(res.mensaje || 'Información guardada en MySQL');
-      setApiOnline(true);
+      markApiOnline();
     } catch (e) {
       limpiarConsulta();
       setErr(e.message);
@@ -324,7 +329,7 @@ export default function PortalPage() {
     try {
       const res = await buscarEntrega(vbeln);
       aplicarResultadoEntrega(res.data, res.mensaje || `Entrega ${vbeln} activa`);
-      setApiOnline(true);
+      markApiOnline();
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -553,7 +558,7 @@ export default function PortalPage() {
       }
     } catch (e) {
       setErr(e.message || 'Error al guardar');
-      if (e instanceof ApiError && e.network) setApiOnline(false);
+      if (e instanceof ApiError && e.network) markApiOffline();
     } finally {
       setEnviando(false);
     }
@@ -572,7 +577,16 @@ export default function PortalPage() {
 
   return (
     <div className="pw">
-      {!apiOnline && <ConnectionBanner tipo="sin_api" />}
+      {!apiOnline && (
+        <ConnectionBanner
+          tipo={!deviceOnline ? 'general' : 'sin_api'}
+          detalle={
+            isNativeApp() && deviceOnline && !apiReachable
+              ? `API configurado: ${getConfiguredApiBase()}`
+              : null
+          }
+        />
+      )}
 
       <div className="page-top">
         <div>

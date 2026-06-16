@@ -1,6 +1,7 @@
 {
   "name": "portal-cumplidos",
   "private": true,
+  "type": "module",
   "scripts": {
     "install:all": "npm install --prefix backend && npm install --prefix frontend",
     "dev:api": "npm run dev --prefix backend",
@@ -8,9 +9,9 @@
     "dev": "npm run dev:api",
     "start:all": "echo Ejecute en 2 terminales: npm run dev:api y npm run dev:web",
     "sync:env": "node scripts/sync-env.js",
+    "sync:env:mobile": "node scripts/sync-env-mobile.js",
     "docker:up": "npm run sync:env && docker compose up -d --build",
     "docker:dev": "npm run sync:env && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build --force-recreate web",
-    "docker:dev:all": "npm run sync:env && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build",
     "docker:dev:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
     "docker:web:restart": "npm run sync:env && docker compose -f docker-compose.yml -f docker-compose.dev.yml stop web && docker compose -f docker-compose.yml -f docker-compose.dev.yml rm -f web && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build web",
     "docker:api:restart": "npm run sync:env && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build --force-recreate api",
@@ -19,8 +20,14 @@
     "docker:logs:web": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f web",
     "pack:server": "powershell -ExecutionPolicy Bypass -File scripts/pack-for-server.ps1",
     "docker:intiva": "docker compose --profile intiva --env-file .env.docker up -d --build intiva-tunnel api web",
+    "docker:dev:all": "npm run sync:env && docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile intiva --env-file .env.docker up -d --build intiva-tunnel api web",
+    "docker:dev:mobile": "npm run sync:env:mobile && npm run mobile:sync",
     "docker:intiva:logs": "docker compose --profile intiva logs -f intiva-tunnel api",
     "db:init": "npm run db:init --prefix backend",
-    "db:tables": "npm run db:init --prefix backend"
+    "db:tables": "npm run db:init --prefix backend",
+    "build:mobile": "npm run build:mobile --prefix frontend",
+    "mobile:sync": "npm run cap:sync --prefix frontend",
+    "mobile:open": "npm run cap:open --prefix frontend",
+    "mobile:run": "npm run cap:run --prefix frontend"
   }
 }

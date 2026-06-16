@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Portal Cumplidos</string>
+    <string name="title_activity_main">Portal Cumplidos</string>
+    <string name="package_name">com.grupodecor.portalcumplidos</string>
+    <string name="custom_url_scheme">com.grupodecor.portalcumplidos</string>
+</resources>
