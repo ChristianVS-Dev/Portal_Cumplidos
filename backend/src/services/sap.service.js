@@ -167,7 +167,7 @@ async function enviarAdjuntoSapReal({ numeroEntrega, archivo, descripcion, tipo 
 
 function buildDescripcionAdjuntoFallback(numeroEntrega, tipo) {
   const etiqueta = tipo === 'cumplido' ? 'Cumplido de entrega' : `Evidencia (${tipo})`;
-  return `ANEXO SUBIDO DESDE PORTAL CONDUCTOR · ${etiqueta} · Entrega ${numeroEntrega}`;
+  return `ANEXO SUBIDO PORTAL CONDUCTOR · ${etiqueta} · Entrega ${numeroEntrega}`;
 }
 
 /**
@@ -252,14 +252,20 @@ async function registrarIntentoEntregaSapReal(numeroEntrega, modo) {
       });
     }
 
-    if (res.status === 201 && json.ok === true) {
+    const intentoOk =
+      json.ok === true ||
+      json.ok === 'true' ||
+      json.intento != null ||
+      json.logId != null;
+
+    if (res.ok && intentoOk) {
       console.info('[SAP intento] POST ok', url, `intento=${json.intento}`, json.mensaje || '');
       return {
         ok: true,
         estado: 'ok',
         logId: json.logId,
         intento: json.intento,
-        mensaje: json.mensaje || 'Intento registrado correctamente',
+        mensaje: json.mensaje || json.message || 'Intento registrado correctamente',
         entregado,
         numeroEntrega,
       };
@@ -330,7 +336,7 @@ export function buildDescripcionAdjuntoSap(registro) {
   const visitas = visitasTxt.length ? visitasTxt.join('; ') : null;
 
   const partes = [
-    'ANEXO SUBIDO DESDE PORTAL CONDUCTOR',
+    'ANEXO SUBIDO PORTAL CONDUCTOR',
     tipo,
     vbeln ? `Entrega ${vbeln}` : null,
     motivos ? `Motivos: ${motivos}` : null,

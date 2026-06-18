@@ -37,7 +37,11 @@ import {
   cuentaVisitasGestion,
   cuentaVisitasEnForm,
 } from '../constants/visitasNoContesto.js';
-import { fechaParaInput, horaParaInput } from '../utils/fechaHoraEntrega.js';
+import {
+  fechaEntregaAutomatica,
+  fechaParaInput,
+  horaParaInput,
+} from '../utils/fechaHoraEntrega.js';
 
 const EV_SLOTS = [
   { id: 'evL', fileId: 'fL', tipo: 'ev_lugar', label: 'Foto lugar', icon: 'bi-geo-alt-fill' },
@@ -164,12 +168,12 @@ export default function PortalPage() {
       t?.fechaPlanificada ||
       sap?.fechaPlanificada ||
       null;
-    const fec = fechaParaInput(fecRaw);
+    const fec = fechaParaInput(fecRaw) || fechaEntregaAutomatica();
     setForm((f) => ({
       ...f,
       nom: transportista || f.nom,
       pla: placa || f.pla,
-      ...(fec ? { fec } : {}),
+      fec,
       // Hora de entrega: solo manual en paso 1 (no precargar desde BD ni transporte)
     }));
   };
@@ -490,30 +494,50 @@ export default function PortalPage() {
       ];
 
       const res = await crearCumplido(payload, archivos);
-      if (res.syncSap || res.advertenciaSap) {
-        console.warn('[Portal] Resultado envío adjuntos SAP:', {
-          syncSap: res.syncSap,
-          advertenciaSap: res.advertenciaSap,
-        });
-      }
       const now = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
       const vbelnOk = numeroEntrega;
+      const msgExito =
+        res.mensaje ||
+        (modo === 'ok'
+          ? `Entrega ${vbelnOk} registrada correctamente · ${now}`
+          : `No contestó ${vbelnOk} registrado correctamente · ${now}`);
 
-      if (res.advertenciaSap) {
-        setErr(res.advertenciaSap);
-      } else if (res.syncSap?.estado === 'error') {
+      const tuvoAdjuntos = archivos.length > 0;
+      const zipOk =
+        !tuvoAdjuntos || res.syncSapOk === true || res.syncSap?.estado === 'ok';
+      const intentoOk =
+        res.syncIntentoSapOk !== false && res.syncIntentoSap?.estado !== 'error';
+
+      if (zipOk && intentoOk) {
+        setOk(msgExito);
+        setErr('');
+      } else if (zipOk && !intentoOk) {
+        setOk(msgExito);
         setErr(
-          res.syncSap.mensaje ||
-            'No se pudo enviar el archivo ZIP a SAP. El registro quedó guardado en el portal.'
+          res.syncIntentoSap?.mensaje ||
+            'El registro quedó guardado y el ZIP se envió a SAP, pero no se confirmó el intento de entrega.'
+        );
+      } else if (!zipOk && intentoOk) {
+        setOk(msgExito);
+        setErr(
+          res.syncSap?.mensaje ||
+            'El registro quedó guardado en el portal, pero no se pudo enviar el archivo ZIP a SAP.'
+        );
+      } else {
+        setOk(msgExito);
+        setErr(
+          res.advertenciaSap ||
+            'El registro quedó guardado en el portal, pero hubo problemas al sincronizar con SAP.'
         );
       }
 
-      setOk(
-        res.mensaje ||
-          (modo === 'ok'
-            ? `Entrega ${vbelnOk} registrada correctamente · ${now}`
-            : `No contestó ${vbelnOk} registrado correctamente · ${now}`)
-      );
+      if (res.syncSap || res.advertenciaSap) {
+        console.warn('[Portal] Resultado envío SAP:', {
+          syncSap: res.syncSap,
+          syncIntentoSap: res.syncIntentoSap,
+          advertenciaSap: res.advertenciaSap,
+        });
+      }
       setForm({
         num: '',
         nom: '',
@@ -543,14 +567,6 @@ export default function PortalPage() {
       setPendienteSelId(null);
       setPaso(1);
       setAnimDir('back');
-      if (
-        !res.advertenciaSap &&
-        res.data?.adjuntos?.some((a) => a.estado_sync_sap === 'error')
-      ) {
-        setErr(
-          'El registro se guardó, pero los adjuntos no se sincronizaron con SAP. Revise con soporte.'
-        );
-      }
     } catch (e) {
       setErr(e.message || 'Error al guardar');
       if (e instanceof ApiError && e.network) setApiOnline(false);
@@ -818,8 +834,15 @@ export default function PortalPage() {
                       <input
                         type="date"
                         value={form.fec}
+                        readOnly={Boolean(entregaVbeln) || soloLectura}
+                        disabled={Boolean(entregaVbeln) || soloLectura}
                         onChange={(e) => setField('fec', e.target.value)}
                       />
+                      {(entregaVbeln || soloLectura) && (
+                        <p className="field-hint">
+                          Definida al consultar la entrega; no se puede modificar.
+                        </p>
+                      )}
                     </div>
                     <div className="ig">
                       <label>

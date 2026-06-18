@@ -145,6 +145,7 @@ body { background: #f0f2f5; min-height: 100vh; padding-bottom: 40px; }
 }
 .ig input::placeholder, .ig textarea::placeholder { color: #b0bec5; font-size: 0.75rem; }
 .ig input[type="date"], .ig input[type="time"] { color-scheme: light; }
+.ig input:disabled { background: #eceff1; color: #546e7a; cursor: not-allowed; }
 
 /* ── GRIDS ── */
 .g2  { display: grid; grid-template-columns: 1fr 1fr;     gap: 10px; }
