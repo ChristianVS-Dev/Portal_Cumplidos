@@ -38,10 +38,11 @@ export async function crear(req, res, next) {
 
     const syncIntentoSap = resultado.syncIntentoSap;
     const advertenciasSap = [];
+    const tuvoAdjuntos = (req.archivosMapeados || []).length > 0;
 
-    if (syncSap?.estado === 'error') {
+    if (tuvoAdjuntos && syncSap?.estado === 'error') {
       advertenciasSap.push(syncSap.mensaje || 'No se pudo enviar el ZIP a la API de adjuntos');
-    } else if (syncSap?.simulado) {
+    } else if (tuvoAdjuntos && syncSap?.simulado) {
       advertenciasSap.push(
         'Modo simulación (SAP_USE_MOCK=true): el ZIP no se envió a la API real de adjuntos.'
       );
@@ -55,10 +56,6 @@ export async function crear(req, res, next) {
       advertenciasSap.push(
         'Modo simulación (SAP_USE_MOCK=true): el intento de entrega no se envió a la API real.'
       );
-    }
-
-    if (advertenciasSap.length) {
-      mensaje = `${mensaje}. Los datos quedaron guardados en el portal, pero hubo problemas con SAP.`;
     }
 
     const advertenciaSap = advertenciasSap.length ? advertenciasSap.join(' ') : null;
@@ -142,7 +139,6 @@ export async function completar(req, res, next) {
     if (resultado.syncIntentoSap?.estado === 'error') {
       advertenciaSap =
         resultado.syncIntentoSap.mensaje || 'No se pudo registrar el intento de entrega en SAP';
-      mensaje = `${mensaje}. Los datos quedaron guardados en el portal, pero hubo problemas con SAP.`;
     } else if (resultado.syncIntentoSap?.simulado) {
       advertenciaSap =
         'Modo simulación (SAP_USE_MOCK=true): el intento de entrega no se envió a la API real.';
