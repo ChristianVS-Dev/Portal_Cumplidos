@@ -40,7 +40,12 @@ export async function crear(req, res, next) {
     const advertenciasSap = [];
     const tuvoAdjuntos = (req.archivosMapeados || []).length > 0;
 
-    if (tuvoAdjuntos && syncSap?.estado === 'error') {
+    if (tuvoAdjuntos && syncSap?.estado === 'timeout') {
+      advertenciasSap.push(
+        syncSap.mensaje ||
+          'SAP no confirmó el adjunto a tiempo; verifique en SAP si el archivo llegó antes de reenviar.'
+      );
+    } else if (tuvoAdjuntos && syncSap?.estado === 'error') {
       advertenciasSap.push(syncSap.mensaje || 'No se pudo enviar el ZIP a la API de adjuntos');
     } else if (tuvoAdjuntos && syncSap?.simulado) {
       advertenciasSap.push(
