@@ -133,13 +133,18 @@ async function sincronizarBundleSap(cumplidoId, numeroEntrega, datosRegistro = n
       mensaje: sapRes.mensaje,
     };
   } catch (err) {
+    const esTimeout = err.code === 'SAP_ADJUNTOS_TIMEOUT';
     await query(
       `UPDATE pc_adjunto SET
-        estado_sync_sap = 'error',
+        estado_sync_sap = :estado,
         intentos_sync = intentos_sync + 1,
         ultimo_error = :error
        WHERE registro_cumplido_id = :cumplidoId`,
-      { cumplidoId, error: err.message?.slice(0, 500) }
+      {
+        cumplidoId,
+        estado: esTimeout ? 'pendiente' : 'error',
+        error: err.message?.slice(0, 500),
+      }
     );
     throw err;
   }
@@ -218,16 +223,24 @@ export async function guardarAdjuntos(cumplidoId, archivos, numeroEntrega, opcio
         };
       }
     } catch (err) {
-      console.error('[adjuntos] Error envío ZIP a API SAP:', err.message);
+      const esTimeout = err.code === 'SAP_ADJUNTOS_TIMEOUT';
+      console.warn(
+        esTimeout ? '[adjuntos] Timeout esperando confirmación SAP:' : '[adjuntos] Error envío ZIP a API SAP:',
+        err.message
+      );
       syncSap = {
-        estado: 'error',
+        estado: esTimeout ? 'timeout' : 'error',
         mensaje: err.message,
         codigo: err.code || null,
         status: err.status || null,
         simulado: false,
       };
       for (const r of resultados) {
-        r.sync = { estado: 'error', sapDocId: null, error: err.message };
+        r.sync = {
+          estado: esTimeout ? 'timeout' : 'error',
+          sapDocId: null,
+          error: err.message,
+        };
       }
     }
   }

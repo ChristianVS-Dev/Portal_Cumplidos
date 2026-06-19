@@ -37,6 +37,13 @@ export const config = {
     useMock: process.env.ENTREGAS_USE_MOCK === 'true',
     baseUrl: process.env.ENTREGAS_API_BASE_URL || 'http://10.10.10.5:8100/api/entregas',
     timeoutMs: parseInt(process.env.ENTREGAS_TIMEOUT_MS || '20000', 10),
+    /** Subida de ZIP a SAP suele tardar más que un GET; timeout aparte (ms) */
+    adjuntosTimeoutMs: parseInt(
+      process.env.ENTREGAS_ADJUNTOS_TIMEOUT_MS ||
+        process.env.ENTREGAS_TIMEOUT_MS ||
+        '120000',
+      10
+    ),
     enabled: process.env.ENTREGAS_API_ENABLED !== 'false',
     /** Token API entregas/transportes/adjuntos (ENTREGAS_API_TOKEN o PORTAL_API_KEY) */
     token: entregasApiToken,

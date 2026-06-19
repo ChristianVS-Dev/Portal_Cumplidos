@@ -101,7 +101,8 @@ async function enviarAdjuntoSapReal({ numeroEntrega, archivo, descripcion, tipo 
 
   const url = urlAdjuntosEntrega(numeroEntrega);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), config.entregasExterna.timeoutMs);
+  const timeoutMs = config.entregasExterna.adjuntosTimeoutMs;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(url, {
@@ -153,9 +154,13 @@ async function enviarAdjuntoSapReal({ numeroEntrega, archivo, descripcion, tipo 
   } catch (err) {
     clearTimeout(timeout);
     if (err.name === 'AbortError') {
-      throw Object.assign(new Error('Tiempo de espera agotado al enviar adjunto a SAP'), {
-        status: 504,
-      });
+      const seg = Math.round(timeoutMs / 1000);
+      throw Object.assign(
+        new Error(
+          `SAP tardó más de ${seg}s en confirmar el adjunto. El registro quedó guardado; verifique en SAP si el archivo llegó antes de reenviar.`
+        ),
+        { status: 504, code: 'SAP_ADJUNTOS_TIMEOUT' }
+      );
     }
     if (err.status) throw err;
     throw Object.assign(

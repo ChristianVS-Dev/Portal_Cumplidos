@@ -503,6 +503,7 @@ export default function PortalPage() {
           : `No contestó ${vbelnOk} registrado correctamente · ${now}`);
 
       const tuvoAdjuntos = archivos.length > 0;
+      const zipTimeout = res.syncSap?.estado === 'timeout';
       const zipOk =
         !tuvoAdjuntos || res.syncSapOk === true || res.syncSap?.estado === 'ok';
       const intentoOk =
@@ -511,6 +512,13 @@ export default function PortalPage() {
       if (zipOk && intentoOk) {
         setOk(msgExito);
         setErr('');
+      } else if (zipTimeout && intentoOk) {
+        setOk(msgExito);
+        setErr(
+          res.syncSap?.mensaje ||
+            res.advertenciaSap ||
+            'El registro quedó guardado. SAP tardó en confirmar el adjunto; verifique en SAP si el archivo llegó.'
+        );
       } else if (zipOk && !intentoOk) {
         setOk(msgExito);
         setErr(
