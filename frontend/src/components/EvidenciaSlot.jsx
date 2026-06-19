@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
+import { useImagePreviewUrl } from '../hooks/useImagePreviewUrl.js';
 
 export default function EvidenciaSlot({ slot, file, onFile, onPreview, disabled }) {
   const inputRef = useRef(null);
-  const [preview, setPreview] = useState(null);
+  const preview = useImagePreviewUrl(file);
   const [loading, setLoading] = useState(false);
   const done = !!file;
 
@@ -12,11 +13,8 @@ export default function EvidenciaSlot({ slot, file, onFile, onPreview, disabled 
     setLoading(true);
     try {
       await onFile(f);
-      const reader = new FileReader();
-      reader.onload = (ev) => setPreview(ev.target.result);
-      reader.readAsDataURL(f);
     } catch {
-      setPreview(null);
+      /* el padre puede rechazar el archivo */
     } finally {
       setLoading(false);
       e.target.value = '';
@@ -26,7 +24,6 @@ export default function EvidenciaSlot({ slot, file, onFile, onPreview, disabled 
   const clear = (e) => {
     e.stopPropagation();
     onFile(null);
-    setPreview(null);
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -43,6 +40,8 @@ export default function EvidenciaSlot({ slot, file, onFile, onPreview, disabled 
           className="ev-preview"
           src={preview}
           alt=""
+          loading="lazy"
+          decoding="async"
           style={{ display: 'block' }}
           onClick={(e) => {
             e.stopPropagation();

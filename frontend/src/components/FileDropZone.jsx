@@ -1,19 +1,30 @@
 import { useRef } from 'react';
+import { useImagePreviewUrl } from '../hooks/useImagePreviewUrl.js';
+import { esImagenPreview } from '../utils/imagePreview.js';
 
-function PreviewCard({ file, index, onRemove, onPreview }) {
-  const ext = file.name.split('.').pop()?.toLowerCase();
-  const isImg = ['jpg', 'jpeg', 'png'].includes(ext);
+const PREVIEW_IMG_PROPS = {
+  loading: 'lazy',
+  decoding: 'async',
+};
+
+function PreviewCard({ file, onRemove, onPreview }) {
+  const isImg = esImagenPreview(file);
+  const url = useImagePreviewUrl(isImg ? file : null);
 
   if (isImg) {
-    const url = URL.createObjectURL(file);
     return (
       <div className="prev-card">
-        <img
-          className="prev-img"
-          src={url}
-          alt=""
-          onClick={() => onPreview({ src: url, name: file.name })}
-        />
+        {url ? (
+          <img
+            className="prev-img"
+            src={url}
+            alt=""
+            {...PREVIEW_IMG_PROPS}
+            onClick={() => onPreview({ src: url, name: file.name })}
+          />
+        ) : (
+          <div className="prev-img prev-img-loading" aria-hidden />
+        )}
         <button type="button" className="prev-remove" onClick={onRemove}>
           ×
         </button>
@@ -39,6 +50,10 @@ function PreviewCard({ file, index, onRemove, onPreview }) {
       </button>
     </div>
   );
+}
+
+function filePreviewKey(file) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
 }
 
 export default function FileDropZone({ files, onChange, onPreview, onFileAdded, disabled }) {
@@ -117,9 +132,8 @@ export default function FileDropZone({ files, onChange, onPreview, onFileAdded, 
       <div className="preview-grid">
         {files.map((f, i) => (
           <PreviewCard
-            key={`${f.name}-${i}`}
+            key={filePreviewKey(f)}
             file={f}
-            index={i}
             onRemove={() => remove(i)}
             onPreview={onPreview}
           />
