@@ -7,7 +7,7 @@ export default function ConnectionBanner({ tipo = 'sin_api', detalle = null }) {
 
   const hints = {
     sin_api:
-      'La app móvil no alcanza el API Node (no es la BD). Verifique Docker (api + túnel), la URL en .env.mobile y vuelva a ejecutar npm run mobile:sync.',
+      'La app no recibe respuesta válida del API (CORS o red). La BD/túnel SSH solo usa el servidor; la APK no se conecta a MySQL. Si apunta a QA: reconstruya el contenedor api en el servidor y verifique CORS. Si es local: docker:dev:all y mobile:sync.',
     general:
       'Active Wi‑Fi o datos móviles. Sin red no se puede contactar al servidor del portal.',
     sin_sap: 'El API del portal responde, pero SAP no está disponible en este momento.',

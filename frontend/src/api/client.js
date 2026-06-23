@@ -58,7 +58,7 @@ export async function checkApiHealth() {
   try {
     const res = await fetch(`${BASE}/health`, {
       signal: AbortSignal.timeout(8000),
-      headers: apiHeaders(),
+      // Sin X-Portal-Key: /health no lo exige y evita preflight CORS innecesario
     });
     const debugHealth = import.meta.env.DEV || import.meta.env.MODE === 'mobile';
     if (debugHealth) {
