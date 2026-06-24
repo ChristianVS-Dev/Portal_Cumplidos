@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:mobile": "vite build --mode mobile",
     "preview": "vite preview",
-    "cap:sync": "npm run build:mobile && npx cap sync android",
+    "sync:splash": "node ./scripts/sync-android-branding.js",
+    "cap:sync": "npm run sync:splash && npm run build:mobile && npx cap sync android",
     "cap:open": "npx cap open android",
     "cap:run": "npm run cap:sync && npx cap run android"
   },
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "sharp": "^0.34.5",
     "vite": "^6.0.7"
   }
 }

@@ -28,6 +28,6 @@
     "build:mobile": "npm run build:mobile --prefix frontend",
     "mobile:sync": "npm run cap:sync --prefix frontend",
     "mobile:open": "npm run cap:open --prefix frontend",
-    "mobile:run": "npm run cap:run --prefix frontend"
+    "mobile:run": "node scripts/run-android.js"
   }
 }

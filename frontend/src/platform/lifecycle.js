@@ -9,7 +9,7 @@ async function configureChromeNativo() {
   try {
     await StatusBar.setOverlaysWebView({ overlay: false });
     await StatusBar.setStyle({ style: Style.Dark });
-    await StatusBar.setBackgroundColor({ color: '#0d1f3c' });
+    await StatusBar.setBackgroundColor({ color: '#263238' });
   } catch {
     /* plugins opcionales en emuladores antiguos */
   }

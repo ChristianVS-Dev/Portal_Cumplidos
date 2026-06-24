@@ -34,4 +34,3 @@ dist-deploy/
 *.zip
 !backend/package-lock.json
 !frontend/package-lock.json
-scripts/

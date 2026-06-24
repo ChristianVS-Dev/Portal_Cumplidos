@@ -1,0 +1,6 @@
+# Ruta del Android SDK (genere con Android Studio o copie este archivo a local.properties)
+sdk.dir=C\:\\Users\\TU_USUARIO\\AppData\\Local\\Android\\Sdk
+
+# Si Gradle falla con "JAVA_HOME is not set" en la terminal, use una de estas opciones:
+# 1) npm run mobile:run (detecta el JDK de Android Studio automaticamente)
+# 2) Variable de entorno JAVA_HOME = C:\Program Files\Android\Android Studio\jbr

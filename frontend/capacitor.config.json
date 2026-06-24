@@ -12,7 +12,8 @@
   "plugins": {
     "SplashScreen": {
       "launchAutoHide": false,
-      "backgroundColor": "#0d1f3c",
+      "backgroundColor": "#263238",
+      "androidSplashResourceName": "splash",
       "showSpinner": false
     },
     "Keyboard": {
