@@ -6,6 +6,18 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/** Orígenes Capacitor (WebView Android/iOS) para app móvil del portal */
+const CAPACITOR_CORS_ORIGINS = ['https://localhost', 'capacitor://localhost', 'http://localhost'];
+
+function buildCorsOrigins() {
+  const fromEnv = (process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:8080')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (process.env.CORS_ALLOW_CAPACITOR === 'false') return [...new Set(fromEnv)];
+  return [...new Set([...fromEnv, ...CAPACITOR_CORS_ORIGINS])];
+}
+
 /** Clave del portal; si ENTREGAS_API_TOKEN está vacío, se usa la misma para la API externa */
 const portalApiKey = (process.env.PORTAL_API_KEY || '').trim();
 const entregasApiToken = (process.env.ENTREGAS_API_TOKEN || portalApiKey).trim();
