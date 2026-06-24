@@ -5,6 +5,13 @@ body { background: #f0f2f5; min-height: 100vh; padding-bottom: 40px; }
 /* ── PAGE WRAPPER ── */
 .pw { padding: 28px 40px; max-width: 100%; margin: 0 auto; }
 
+@media (max-width: 768px) {
+  .pw {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
 /* ── PAGE TOP ── */
 .page-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
 .breadcrumb { font-size: 0.7rem; color: #455a64; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; display: flex; align-items: center; gap: 5px; }
@@ -403,10 +410,10 @@ body { background: #f0f2f5; min-height: 100vh; padding-bottom: 40px; }
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  padding: 12px 0 4px;
+  padding: 14px 0 8px;
   position: sticky;
   bottom: 0;
-  background: linear-gradient(180deg, transparent, #f0f2f5 24%);
+  background: linear-gradient(180deg, transparent, #f0f2f5 28%);
   z-index: 5;
 }
 .wizard-nav-btn {
@@ -481,22 +488,24 @@ body { background: #f0f2f5; min-height: 100vh; padding-bottom: 40px; }
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 420px;
+  gap: 12px;
+  max-height: none;
   overflow-y: auto;
-  padding-right: 4px;
+  overflow-x: hidden;
+  padding-right: 2px;
 }
 .pendiente-card {
   width: 100%;
+  box-sizing: border-box;
   text-align: left;
   background: #f8f9fb;
   border: 1.5px solid #e2e8ed;
-  border-radius: 10px;
-  padding: 12px 12px 70px;
-  cursor: pointer;
+  border-radius: 14px;
+  padding: 14px 14px 12px;
   transition: border-color 0.2s, background 0.2s, transform 0.2s, box-shadow 0.2s;
   font-family: inherit;
   position: relative;
+  overflow: hidden;
 }
 .pendiente-card:hover {
   border-color: #455a64;
@@ -511,21 +520,45 @@ body { background: #f0f2f5; min-height: 100vh; padding-bottom: 40px; }
 }
 .pendiente-card-top {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin-bottom: 6px;
 }
-.pendiente-card-top strong { font-size: 0.78rem; color: #263238; }
-.pendiente-proceso-badge {
+.pendiente-vbeln {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #263238;
+  flex-shrink: 0;
+  letter-spacing: 0.01em;
+}
+.pendiente-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 0;
-  font-size: 0.72rem;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.6rem;
   font-weight: 700;
-  border-radius: 999px;
-  padding: 5px 10px;
-  line-height: 1;
+  border-radius: 8px;
+  padding: 7px 6px;
+  line-height: 1.2;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.pendiente-chip i {
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+.pendiente-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pendiente-proceso-badge {
+  margin-bottom: 0;
+  grid-column: 1 / -1;
 }
 .pendiente-proceso-badge.cumplida {
   background: #e8f5e9;
@@ -553,18 +586,47 @@ body { background: #f0f2f5; min-height: 100vh; padding-bottom: 40px; }
   font-weight: 600;
   color: #e65100;
   background: #fff3e0;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-align: left;
+  line-height: 1.25;
+  align-self: flex-start;
+  max-width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
 }
-.pendiente-card-body { font-size: 0.72rem; font-weight: 500; color: #37474f; }
-.pendiente-card-sub { font-size: 0.65rem; color: #90a4ae; margin: 2px 0 6px; }
+.pendiente-card-body {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #37474f;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.pendiente-card-sub {
+  font-size: 0.65rem;
+  color: #90a4ae;
+  margin: 4px 0 6px;
+  line-height: 1.35;
+  word-break: break-word;
+}
 .pendiente-card-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 12px;
+  gap: 6px 10px;
   font-size: 0.62rem;
   color: #78909c;
-  margin-top: 4px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+.pendiente-meta-empresa {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 .pendientes-empty {
   text-align: center;
@@ -643,43 +705,33 @@ body { background: #f0f2f5; min-height: 100vh; padding-bottom: 40px; }
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
-  align-items: center;
+  margin-top: 14px;
+  align-items: stretch;
+}
+.pendiente-card .btn-sm {
+  font-size: 0.65rem;
+  padding: 8px 12px;
+  min-height: 36px;
+  flex: 1 1 calc(50% - 4px);
+  justify-content: center;
+  min-width: 0;
 }
 .pendiente-status-stack {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
+  margin-top: 12px;
+  width: 100%;
 }
 .pendiente-adjuntos-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.72rem;
-  font-weight: 700;
   color: #0d47a1;
   background: #e3f2fd;
   border: 1px solid #90caf9;
-  border-radius: 999px;
-  padding: 5px 10px;
-  line-height: 1;
 }
 .pendiente-visitas-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.72rem;
-  font-weight: 700;
   color: #5d4037;
   background: #fff3e0;
   border: 1px solid #ffcc80;
-  border-radius: 999px;
-  padding: 5px 10px;
-  line-height: 1;
 }
 .info-entrega-visitas-chip {
   display: inline-flex;
@@ -741,15 +793,14 @@ body { background: #f0f2f5; min-height: 100vh; padding-bottom: 40px; }
     grid-template-columns: 1fr;
   }
 }
-.pendiente-card .btn-sm {
-  font-size: 0.65rem;
-  padding: 5px 10px;
-  min-height: 32px;
-}
 .pendiente-activa-tag {
   font-size: 0.62rem;
   color: #2e7d32;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0;
 }
 .pendiente-card { display: block; }
 

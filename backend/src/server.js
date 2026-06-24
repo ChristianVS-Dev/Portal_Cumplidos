@@ -32,6 +32,10 @@ app.use(errorHandler);
 export default function startServer() {
   app.listen(config.port, () => {
     console.log(`API Portal Cumplidos → http://localhost:${config.port}`);
+    console.log(`  CORS orígenes: ${config.corsOrigins.join(', ')}`);
+    console.log(
+      `  Timeouts ms: entregas=${config.entregasExterna.timeoutMs}, adjuntos=${config.entregasExterna.adjuntosTimeoutMs}, transportes=${config.transportes.timeoutMs}`
+    );
     console.log(`  SAP modo: ${config.sap.useMock ? 'MOCK' : 'REAL'}`);
     console.log(`  MySQL: ${config.mysql.host}:${config.mysql.port}/${config.mysql.database}`);
   });

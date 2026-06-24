@@ -12,8 +12,15 @@ export default function EntregasPendientes({
     item.estadoProceso === 'cumplida' && item.estadoResultado === 'no_contesto';
 
   const estadoProcesoTexto = (item) => {
-    if (esEntregaFallida(item)) return 'Entrega fallida';
-    if (item.estadoProceso === 'cumplida') return 'Cumplida · Exitosa';
+    if (esEntregaFallida(item)) return 'Fallida';
+    if (item.estadoProceso === 'cumplida') return 'Exitosa';
+    if (item.estadoProceso === 'en_proceso') return 'En proceso';
+    return 'Pendiente';
+  };
+
+  const estadoProcesoTitulo = (item) => {
+    if (esEntregaFallida(item)) return 'Entrega fallida (no contestó)';
+    if (item.estadoProceso === 'cumplida') return 'Cumplida exitosa';
     if (item.estadoProceso === 'en_proceso') return 'En proceso';
     return 'Sin iniciar';
   };
@@ -50,7 +57,7 @@ export default function EntregasPendientes({
                   className={`pendiente-card ${seleccionadoId === id || esActiva ? 'selected' : ''}`}
                 >
                   <div className="pendiente-card-top">
-                    <strong>{item.vbeln || item.numero}</strong>
+                    <strong className="pendiente-vbeln">{item.vbeln || item.numero}</strong>
                     <span className="pendiente-estado" title={item.ruta}>
                       {item.ruta || item.estado || 'PENDIENTE'}
                     </span>
@@ -68,22 +75,32 @@ export default function EntregasPendientes({
                         </span>
                       )}
                       {item.transportistaEmpresa && (
-                        <span>
-                          <i className="bi bi-building" /> {item.transportistaEmpresa}
+                        <span className="pendiente-meta-empresa" title={item.transportistaEmpresa}>
+                          <i className="bi bi-truck" /> {item.transportistaEmpresa}
                         </span>
                       )}
                     </div>
                   )}
                   <div className="pendiente-status-stack">
-                    <div className={`pendiente-proceso-badge ${estadoClase}`}>
-                      <i className="bi bi-flag-fill" /> {estadoProcesoTexto(item)}
+                    <div
+                      className={`pendiente-chip pendiente-proceso-badge ${estadoClase}`}
+                      title={estadoProcesoTitulo(item)}
+                    >
+                      <i className="bi bi-flag-fill" aria-hidden />
+                      <span>{estadoProcesoTexto(item)}</span>
                     </div>
-                    <div className="pendiente-adjuntos-chip">
-                      <i className="bi bi-paperclip" /> Adjuntos: {item.totalAdjuntos || 0}
+                    <div className="pendiente-chip pendiente-adjuntos-chip" title="Adjuntos registrados">
+                      <i className="bi bi-paperclip" aria-hidden />
+                      <span>Adj. {item.totalAdjuntos || 0}</span>
                     </div>
-                    <div className="pendiente-visitas-chip">
-                      <i className="bi bi-geo-alt" /> Visitas: {item.visitasRegistradas ?? 0}/
-                      {item.visitasMax ?? 3}
+                    <div
+                      className="pendiente-chip pendiente-visitas-chip"
+                      title="Intentos de visita registrados"
+                    >
+                      <i className="bi bi-geo-alt" aria-hidden />
+                      <span>
+                        {item.visitasRegistradas ?? 0}/{item.visitasMax ?? 3}
+                      </span>
                     </div>
                   </div>
                   <div className="pendiente-card-actions">

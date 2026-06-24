@@ -75,8 +75,9 @@ async function consultarMock(vbeln) {
 async function consultarReal(vbeln) {
   const base = config.entregasExterna.baseUrl.replace(/\/$/, '');
   const url = `${base}/${encodeURIComponent(String(vbeln).trim())}`;
+  const timeoutMs = config.entregasExterna.timeoutMs;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), config.entregasExterna.timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(url, {
@@ -104,9 +105,12 @@ async function consultarReal(vbeln) {
   } catch (err) {
     clearTimeout(timeout);
     if (err.name === 'AbortError') {
-      throw Object.assign(new Error('Tiempo de espera agotado al consultar la entrega'), {
-        status: 504,
-      });
+      const seg = Math.round(timeoutMs / 1000);
+      console.warn('[entregas-externa] Timeout consulta', url, `${seg}s`);
+      throw Object.assign(
+        new Error(`Tiempo de espera agotado al consultar la entrega (${seg}s)`),
+        { status: 504, code: 'ENTREGAS_TIMEOUT' }
+      );
     }
     if (err.status) throw err;
     throw Object.assign(
