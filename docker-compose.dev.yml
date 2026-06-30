@@ -15,7 +15,7 @@ services:
     # !override evita fusionar con "8080:80" del compose base (doble bind = web no arranca)
     ports: !override
       - "${WEB_HOST_PORT:-19080}:5173"
-    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    command: [ "npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173" ]
 
 volumes:
   web_node_modules:
