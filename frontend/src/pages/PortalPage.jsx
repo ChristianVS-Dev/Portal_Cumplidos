@@ -464,7 +464,7 @@ export default function PortalPage() {
       return;
     }
     if (modo === 'nov' && modoNovBloqueado) {
-      setErr('Ya se registraron 3 intentos de no contestó. Solo puede registrar entrega exitosa.');
+      setErr('Ya se registraron 3 intentos de novedad en entrega. Solo puede registrar entrega exitosa.');
       return;
     }
 
@@ -500,7 +500,7 @@ export default function PortalPage() {
         res.mensaje ||
         (modo === 'ok'
           ? `Entrega ${vbelnOk} registrada correctamente · ${now}`
-          : `No contestó ${vbelnOk} registrado correctamente · ${now}`);
+          : `Novedad en entrega ${vbelnOk} registrada correctamente · ${now}`);
 
       const tuvoAdjuntos = archivos.length > 0;
       const zipTimeout = res.syncSap?.estado === 'timeout';
@@ -664,7 +664,7 @@ export default function PortalPage() {
                   disabled={modoSeleccionBloqueado || modoNovBloqueado}
                   title={
                     modoNovBloqueado && !entregaExitosaCerrada
-                      ? 'Ya se registraron 3 intentos de no contestó'
+                      ? 'Ya se registraron 3 intentos de novedad en entrega'
                       : undefined
                   }
                   onClick={() => {
@@ -672,13 +672,13 @@ export default function PortalPage() {
                     setOk('');
                   }}
                 >
-                  <i className="bi bi-telephone-x-fill" /> No contestó
+                  <i className="bi bi-exclamation-triangle-fill" /> Novedad en entrega
                 </button>
               </div>
               <div className={`alert-nov ${modo === 'nov' ? 'show' : ''}`}>
                 <i className="bi bi-exclamation-triangle-fill" style={{ color: '#e65100' }} />
                 <div>
-                  <span className="alert-nov-title">Modo no contestó</span>
+                  <span className="alert-nov-title">Novedad en entrega</span>
                   <span className="alert-nov-sub">En el paso 2 adjuntará evidencias.</span>
                 </div>
               </div>
@@ -707,7 +707,7 @@ export default function PortalPage() {
           )}
           {maxIntentosNovAlcanzado && !entregaExitosaCerrada && (
             <p className="sync-ok mb10 wizard-feedback" role="status">
-              <i className="bi bi-info-circle" /> Se registraron los 3 intentos de no contestó. Solo
+              <i className="bi bi-info-circle" /> Se registraron los 3 intentos de novedad en entrega. Solo
               puede registrar <strong>Entrega exitosa</strong>.
             </p>
           )}
@@ -716,7 +716,7 @@ export default function PortalPage() {
             !maxIntentosNovAlcanzado &&
             !gestionVisitas?.cumplidoEnBorrador && (
               <p className="sync-ok mb10 wizard-feedback" role="status">
-                <i className="bi bi-info-circle" /> Hay intentos de no contestó guardados (
+                <i className="bi bi-info-circle" /> Hay intentos de novedad en entrega guardados (
                 {gestionVisitas.visitasRegistradas ?? 0}/{gestionVisitas.maxVisitas ?? 3}). Puede
                 registrar otro intento o <strong>Entrega exitosa</strong>.
               </p>
@@ -928,7 +928,7 @@ export default function PortalPage() {
                 ) : (
                   <>
                     <div className="section-bar">
-                      <i className="bi bi-camera-video-fill" /> Evidencias de no contestó{' '}
+                      <i className="bi bi-camera-video-fill" /> Evidencias de novedad en entrega{' '}
                       <span className="req">*</span>
                       <span className="step-badge">2 / 3</span>
                     </div>
@@ -1045,7 +1045,7 @@ export default function PortalPage() {
                     </div>
                     <div className="resumen-row">
                       <span>Tipo</span>
-                      <strong>{modo === 'ok' ? 'Entrega exitosa' : 'No contestó'}</strong>
+                      <strong>{modo === 'ok' ? 'Entrega exitosa' : 'Novedad en entrega'}</strong>
                     </div>
                     <div className="resumen-row">
                       <span>Adjuntos</span>

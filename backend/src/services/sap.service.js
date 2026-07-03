@@ -331,7 +331,7 @@ export function buildDescripcionAdjuntoSap(registro) {
   const placa = registro?.placa || 'N/D';
   const esNov =
     registro?.modo === 'nov' || registro?.estado_resultado === 'no_contesto';
-  const tipo = esNov ? 'Entrega fallida' : 'Entrega exitosa';
+  const tipo = esNov ? 'Novedad en entrega' : 'Entrega exitosa';
   const total = registro?.total_archivos ? `${registro.total_archivos} archivo(s) en ZIP` : '';
   const motivos =
     registro?.motivosNov?.length > 0

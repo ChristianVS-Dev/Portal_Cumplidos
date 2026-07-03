@@ -12,14 +12,14 @@ export default function EntregasPendientes({
     item.estadoProceso === 'cumplida' && item.estadoResultado === 'no_contesto';
 
   const estadoProcesoTexto = (item) => {
-    if (esEntregaFallida(item)) return 'Fallida';
+    if (esEntregaFallida(item)) return 'Novedad';
     if (item.estadoProceso === 'cumplida') return 'Exitosa';
     if (item.estadoProceso === 'en_proceso') return 'En proceso';
     return 'Pendiente';
   };
 
   const estadoProcesoTitulo = (item) => {
-    if (esEntregaFallida(item)) return 'Entrega fallida (no contestó)';
+    if (esEntregaFallida(item)) return 'Novedad en entrega';
     if (item.estadoProceso === 'cumplida') return 'Cumplida exitosa';
     if (item.estadoProceso === 'en_proceso') return 'En proceso';
     return 'Sin iniciar';
