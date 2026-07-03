@@ -12,7 +12,7 @@ function validarCompletar(body) {
   if (!body?.fechaEntrega) miss.push('fecha');
   if (!body?.terminosAceptados) miss.push('términos y condiciones');
   if (body?.modo === 'nov' && !body?.descripcionNovedad?.trim()) {
-    miss.push('descripción de no contestó');
+    miss.push('descripción de la novedad en entrega');
   }
   if (body?.modo === 'nov' && !tieneAlgunaMotivoNov(body)) {
     miss.push('al menos un motivo de novedad');
@@ -34,7 +34,7 @@ export async function crear(req, res, next) {
     let mensaje =
       body.modo === 'ok'
         ? `Entrega ${body.numeroEntrega} registrada correctamente`
-        : `No contestó ${body.numeroEntrega} registrado correctamente`;
+        : `Novedad en entrega ${body.numeroEntrega} registrada correctamente`;
 
     const syncIntentoSap = resultado.syncIntentoSap;
     const advertenciasSap = [];
@@ -139,7 +139,7 @@ export async function completar(req, res, next) {
     let mensaje =
       body.modo === 'ok'
         ? `Entrega ${resultado.numeroEntrega} registrada correctamente`
-        : `No contestó ${resultado.numeroEntrega} guardado`;
+        : `Novedad en entrega ${resultado.numeroEntrega} guardada`;
     let advertenciaSap = null;
     if (resultado.syncIntentoSap?.estado === 'error') {
       advertenciaSap =

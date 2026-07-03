@@ -373,7 +373,7 @@ export async function consultarDesdeCacheMysql(vbeln, opts = {}) {
     gestionVisitas: opts.gestionVisitas || null,
     mensajeLocal:
       opts.gestionVisitas?.entregaFallidaCompletada
-        ? 'Entrega fallida ya registrada. Datos cargados desde el portal (sin consultar API externa).'
+        ? 'Novedad en entrega ya registrada. Datos cargados desde el portal (sin consultar API externa).'
         : 'Datos cargados desde el portal.',
   };
 }

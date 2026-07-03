@@ -483,7 +483,7 @@ export async function completarRegistro(cumplidoId, datos) {
 
   if (modo === 'nov' && !tieneAlgunaMotivoNov(datos)) {
     throw Object.assign(
-      new Error('Debe marcar al menos un motivo de novedad (no contestó)'),
+      new Error('Debe marcar al menos un motivo de novedad en entrega'),
       { status: 400 }
     );
   }
@@ -504,7 +504,7 @@ export async function completarRegistro(cumplidoId, datos) {
   if (modo === 'nov' && intentosNovPrevios >= MAX_VISITAS_NO_CONTESTO) {
     throw Object.assign(
       new Error(
-        'Ya se registraron 3 intentos de no contestó. Solo puede registrar entrega exitosa.'
+        'Ya se registraron 3 intentos de novedad en entrega. Solo puede registrar entrega exitosa.'
       ),
       { status: 400 }
     );
@@ -649,7 +649,7 @@ export async function crearCumplido(datos, archivos = []) {
   if (datos.modo === 'nov' && !gestionPre.puedeRegistrarModoNov) {
     throw Object.assign(
       new Error(
-        'Ya se registraron 3 intentos de no contestó. Solo puede registrar entrega exitosa.'
+        'Ya se registraron 3 intentos de novedad en entrega. Solo puede registrar entrega exitosa.'
       ),
       { status: 400 }
     );

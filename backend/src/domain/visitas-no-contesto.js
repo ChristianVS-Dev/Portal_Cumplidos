@@ -271,7 +271,7 @@ export function validarVisitasParaCierre(datos = {}, opts = {}) {
   const errores = [];
   const intentosPrev = Number(opts.intentosNovPrevios ?? datos.intentosNovPrevios ?? 0);
   if (datos.modo === 'nov' && intentosPrev >= MAX_VISITAS_NO_CONTESTO) {
-    errores.push('ya se registraron los 3 intentos de no contestó');
+    errores.push('ya se registraron los 3 intentos de novedad en entrega');
     return errores;
   }
   if (!formatHoraParaApi(datos.horaEntrega)) {
