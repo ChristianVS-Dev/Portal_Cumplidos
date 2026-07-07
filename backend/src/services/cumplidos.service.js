@@ -572,7 +572,10 @@ export async function completarRegistro(cumplidoId, datos) {
 
   let syncIntentoSap = null;
   try {
-    const observacionIntento = sapService.buildObservacionIntentoSap(modo, datos);
+    const observacionIntento = sapService.buildObservacionIntentoSap(modo, {
+      ...datos,
+      descripcionNovedad: descripcionNovedad ?? datos.descripcionNovedad,
+    });
     const sapResult = await sapService.registrarIntentoEntregaSap(actual.numero_entrega, modo, {
       observacion: observacionIntento,
     });

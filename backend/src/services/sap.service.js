@@ -226,11 +226,16 @@ async function registrarIntentoEntregaSapReal(numeroEntrega, modo, options = {})
   }
 
   const entregado = entregadoDesdeModo(modo);
-  const observacion = String(options.observacion || '').trim();
+  let observacion = String(options.observacion || '').trim();
+  if (!observacion && modo === 'nov') {
+    observacion = 'Novedad en entrega';
+  }
+
   const body = { entregado };
   if (observacion) body.observacion = observacion;
 
   const url = urlIntentoEntrega(numeroEntrega);
+  console.info('[SAP intento] POST', url, JSON.stringify(body));
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.entregasExterna.timeoutMs);
 
