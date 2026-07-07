@@ -10,6 +10,7 @@ import {
   tieneAlgunaMotivoNov,
   motivosSqlSetClause,
 } from '../domain/motivos-no-contesto.js';
+import { validarObservacionNovSap } from '../domain/observacion-sap.js';
 import { fechaSistema, formatFechaParaApi, formatHoraParaApi } from '../domain/fecha-hora-entrega.js';
 import {
   prepararVisitasParaGuardar,
@@ -488,6 +489,11 @@ export async function completarRegistro(cumplidoId, datos) {
     );
   }
 
+  const errorObservacionSap = modo === 'nov' ? validarObservacionNovSap(datos) : null;
+  if (errorObservacionSap) {
+    throw Object.assign(new Error(errorObservacionSap), { status: 400 });
+  }
+
   await validarAdjuntosObligatorios(cumplidoId, modo);
 
   const entrega = await entregasService.obtenerPorNumero(actual.numero_entrega);
@@ -566,7 +572,10 @@ export async function completarRegistro(cumplidoId, datos) {
 
   let syncIntentoSap = null;
   try {
-    const sapResult = await sapService.registrarIntentoEntregaSap(actual.numero_entrega, modo);
+    const observacionIntento = sapService.buildObservacionIntentoSap(modo, datos);
+    const sapResult = await sapService.registrarIntentoEntregaSap(actual.numero_entrega, modo, {
+      observacion: observacionIntento,
+    });
     const textoSap = [sapResult.mensaje, sapResult.logId ? `logId=${sapResult.logId}` : null, sapResult.intento ? `intento=${sapResult.intento}` : null]
       .filter(Boolean)
       .join(' · ');
@@ -584,6 +593,7 @@ export async function completarRegistro(cumplidoId, datos) {
       logId: sapResult.logId || null,
       intento: sapResult.intento || null,
       entregado: sapResult.entregado,
+      observacion: sapResult.observacion || observacionIntento || null,
       simulado: Boolean(sapResult.simulado),
     };
   } catch (err) {
