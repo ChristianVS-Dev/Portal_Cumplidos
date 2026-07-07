@@ -8,6 +8,7 @@ import {
   urlIntentoEntrega,
 } from '../utils/entregasApiClient.js';
 import { labelsMotivosDesdeRegistro } from '../domain/motivos-no-contesto.js';
+import { buildObservacionIntentoSap } from '../domain/observacion-sap.js';
 import { labelsVisitasParaSap } from '../domain/visitas-no-contesto.js';
 
 /**
@@ -208,11 +209,13 @@ function entregadoDesdeModo(modo) {
   return modo === 'ok';
 }
 
+export { buildObservacionIntentoSap };
+
 /**
  * POST {ENTREGAS_API_BASE_URL}/:vbeln/intento
- * Body: { entregado: true|false } — ok → true (X en SAP), nov → false (espacio)
+ * Body: { entregado: true|false, observacion?: string }
  */
-async function registrarIntentoEntregaSapReal(numeroEntrega, modo) {
+async function registrarIntentoEntregaSapReal(numeroEntrega, modo, options = {}) {
   if (!config.entregasExterna.token) {
     throw Object.assign(
       new Error(
@@ -223,6 +226,10 @@ async function registrarIntentoEntregaSapReal(numeroEntrega, modo) {
   }
 
   const entregado = entregadoDesdeModo(modo);
+  const observacion = String(options.observacion || '').trim();
+  const body = { entregado };
+  if (observacion) body.observacion = observacion;
+
   const url = urlIntentoEntrega(numeroEntrega);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.entregasExterna.timeoutMs);
@@ -235,7 +242,7 @@ async function registrarIntentoEntregaSapReal(numeroEntrega, modo) {
         'Content-Type': 'application/json',
         ...entregasApiAuthHeaders(),
       },
-      body: JSON.stringify({ entregado }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -264,7 +271,13 @@ async function registrarIntentoEntregaSapReal(numeroEntrega, modo) {
       json.logId != null;
 
     if (res.ok && intentoOk) {
-      console.info('[SAP intento] POST ok', url, `intento=${json.intento}`, json.mensaje || '');
+      console.info(
+        '[SAP intento] POST ok',
+        url,
+        `intento=${json.intento}`,
+        observacion ? `observacion=${observacion.slice(0, 80)}…` : '',
+        json.mensaje || ''
+      );
       return {
         ok: true,
         estado: 'ok',
@@ -272,6 +285,7 @@ async function registrarIntentoEntregaSapReal(numeroEntrega, modo) {
         intento: json.intento,
         mensaje: json.mensaje || json.message || 'Intento registrado correctamente',
         entregado,
+        observacion: observacion || null,
         numeroEntrega,
       };
     }
@@ -297,10 +311,11 @@ async function registrarIntentoEntregaSapReal(numeroEntrega, modo) {
 }
 
 /** Registra intento de entrega (RFC Z_SD_LOG_INTENTO_ENTREGA vía API). SAP calcula el número de intento. */
-export async function registrarIntentoEntregaSap(numeroEntrega, modo) {
+export async function registrarIntentoEntregaSap(numeroEntrega, modo, options = {}) {
   if (config.sap.useMock) {
     await new Promise((r) => setTimeout(r, 200));
     const entregado = entregadoDesdeModo(modo);
+    const observacion = String(options.observacion || '').trim();
     console.warn('[SAP intento] MOCK activo — no se llamó a la API real. SAP_USE_MOCK=false para enviar.');
     return {
       ok: true,
@@ -309,17 +324,18 @@ export async function registrarIntentoEntregaSap(numeroEntrega, modo) {
       intento: '001',
       mensaje: `Intento registrado correctamente (simulado, entregado=${entregado})`,
       entregado,
+      observacion: observacion || null,
       numeroEntrega,
       simulado: true,
     };
   }
 
-  return registrarIntentoEntregaSapReal(numeroEntrega, modo);
+  return registrarIntentoEntregaSapReal(numeroEntrega, modo, options);
 }
 
 /** @deprecated Alias — usar registrarIntentoEntregaSap */
-export async function actualizarEstadoEntregaSap(numeroEntrega, modo) {
-  return registrarIntentoEntregaSap(numeroEntrega, modo);
+export async function actualizarEstadoEntregaSap(numeroEntrega, modo, options = {}) {
+  return registrarIntentoEntregaSap(numeroEntrega, modo, options);
 }
 
 /** Texto recomendado para el campo descripcion del endpoint SAP */

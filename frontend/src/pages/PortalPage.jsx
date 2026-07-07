@@ -31,6 +31,12 @@ import {
   tieneMotivoNovSeleccionado,
 } from '../constants/motivosNoContesto.js';
 import {
+  OBSERVACION_SAP_MAX,
+  buildObservacionNovPreview,
+  maxDescripcionNovCaracteres,
+  validarObservacionNov,
+} from '../constants/observacionSap.js';
+import {
   visitasFormVacios,
   aplicarVisitasFormDesdeConsulta,
   payloadVisitasDesdeForm,
@@ -146,7 +152,15 @@ export default function PortalPage() {
   };
 
   const toggleMotivoNov = (key) => {
-    setMotivosNov((prev) => ({ ...prev, [key]: !prev[key] }));
+    setMotivosNov((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      const maxDesc = maxDescripcionNovCaracteres(next);
+      setForm((f) => {
+        if (f.obsNov.length <= maxDesc) return f;
+        return { ...f, obsNov: f.obsNov.slice(0, maxDesc) };
+      });
+      return next;
+    });
   };
 
   const aplicarTransporte = (t) => {
@@ -404,6 +418,8 @@ export default function PortalPage() {
         miss.push('adjuntar al menos una evidencia (foto lugar, captura o aviso)');
       }
       if (!form.obsNov.trim()) miss.push('descripción de novedad');
+      const errObsSap = validarObservacionNov(motivosNov, form.obsNov);
+      if (errObsSap) miss.push(errObsSap);
     }
     return miss;
   };
@@ -1006,8 +1022,16 @@ export default function PortalPage() {
                         <textarea
                           rows={3}
                           value={form.obsNov}
+                          maxLength={maxDescripcionNovCaracteres(motivosNov)}
                           onChange={(e) => setField('obsNov', e.target.value)}
                         />
+                        <p className="field-hint" style={{ fontSize: '0.8rem', marginTop: '0.35rem' }}>
+                          Texto enviado a SAP (motivos + descripción):{' '}
+                          <strong>
+                            {buildObservacionNovPreview(motivosNov, form.obsNov).length}/{OBSERVACION_SAP_MAX}
+                          </strong>{' '}
+                          caracteres
+                        </p>
                       </div>
                     </div>
                   </>
