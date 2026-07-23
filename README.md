@@ -348,7 +348,7 @@ server {
     ssl_certificate     /etc/ssl/grupodecor/portal-cumplidos.crt;
     ssl_certificate_key /etc/ssl/grupodecor/portal-cumplidos.key;
 
-    client_max_body_size 12M;
+    client_max_body_size 50M;
 
     location / {
         proxy_pass http://127.0.0.1:19080;
