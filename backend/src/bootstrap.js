@@ -31,5 +31,14 @@ async function waitForMysql() {
 
 await waitForMysql();
 
+if (config.upload.purgeLegacyOnBoot) {
+  try {
+    const { purgarArchivosYaSincronizados } = await import('./services/adjuntos.service.js');
+    await purgarArchivosYaSincronizados({ limit: 5000 });
+  } catch (err) {
+    console.warn('[adjuntos] Purga legacy al arranque falló:', err.message);
+  }
+}
+
 const { default: startServer } = await import('./server.js');
 startServer();

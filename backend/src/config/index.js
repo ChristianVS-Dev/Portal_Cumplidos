@@ -78,6 +78,10 @@ export const config = {
   upload: {
     dir: path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads')),
     maxSizeMb: parseInt(process.env.MAX_FILE_SIZE_MB || '10', 10),
+    /** Tras sync SAP ok: borrar archivos locales (libera disco; metadatos quedan en MySQL) */
+    purgeAfterSapOk: process.env.UPLOAD_PURGE_AFTER_SAP_OK !== 'false',
+    /** Al arrancar: purgar archivos locales de adjuntos ya sync ok (mantenimiento) */
+    purgeLegacyOnBoot: process.env.UPLOAD_PURGE_LEGACY_ON_BOOT === 'true',
   },
   /** Seguridad sin login: clave de portal + rate limit */
   portal: {
