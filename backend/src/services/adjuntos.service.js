@@ -31,9 +31,14 @@ function hashFile(buffer) {
 function eliminarSiExiste(ruta) {
   try {
     if (ruta && fs.existsSync(ruta)) fs.unlinkSync(ruta);
-  } catch {
-    /* ignorar */
+  } catch (err) {
+    console.warn('[adjuntos] No se pudo borrar archivo local:', ruta, err.message);
   }
+}
+
+function rutaAbsolutaAdjunto(nombreRelativo) {
+  if (!nombreRelativo || nombreRelativo === 'purged') return null;
+  return path.join(config.upload.dir, nombreRelativo);
 }
 
 function rutaBundlePersistente(cumplidoId) {
@@ -41,7 +46,45 @@ function rutaBundlePersistente(cumplidoId) {
 }
 
 /**
+ * Borra del disco los originales (y ZIP legacy) tras sync SAP ok.
+ * Conserva metadatos en MySQL (nombre, hash, sap_doc_id) con ruta = 'purged'.
+ */
+async function purgarArchivosLocalesTrasSyncOk(cumplidoId) {
+  if (!config.upload.purgeAfterSapOk) return { purged: 0 };
+
+  const adjuntos = await query(
+    `SELECT id, ruta_almacenamiento FROM pc_adjunto WHERE registro_cumplido_id = :id`,
+    { id: cumplidoId }
+  );
+
+  let purged = 0;
+  for (const adj of adjuntos) {
+    const abs = rutaAbsolutaAdjunto(adj.ruta_almacenamiento);
+    if (abs) {
+      eliminarSiExiste(abs);
+      purged += 1;
+    }
+  }
+
+  // ZIP persistente de versiones anteriores (si existiera)
+  eliminarSiExiste(rutaBundlePersistente(cumplidoId));
+
+  await query(
+    `UPDATE pc_adjunto SET ruta_almacenamiento = 'purged'
+     WHERE registro_cumplido_id = :id
+       AND ruta_almacenamiento <> 'purged'`,
+    { id: cumplidoId }
+  );
+
+  console.info(
+    `[adjuntos] Purgados ${purged} archivo(s) local(es) tras sync SAP ok · cumplido=${cumplidoId}`
+  );
+  return { purged };
+}
+
+/**
  * Un solo .zip con todos los adjuntos del registro → SAP.
+ * El ZIP se arma en memoria (no se deja en uploads). Tras OK se borran los originales.
  */
 async function sincronizarBundleSap(cumplidoId, numeroEntrega, datosRegistro = null) {
   const adjuntos = await query(
@@ -56,10 +99,14 @@ async function sincronizarBundleSap(cumplidoId, numeroEntrega, datosRegistro = n
 
   const entradas = [];
   for (const adj of adjuntos) {
-    const ruta = path.join(config.upload.dir, adj.ruta_almacenamiento);
-    if (!fs.existsSync(ruta)) {
+    const ruta = rutaAbsolutaAdjunto(adj.ruta_almacenamiento);
+    if (!ruta || !fs.existsSync(ruta)) {
       throw Object.assign(
-        new Error(`Archivo no encontrado en servidor: ${adj.nombre_original}`),
+        new Error(
+          adj.ruta_almacenamiento === 'purged'
+            ? `Adjunto ya enviado a SAP y purgado localmente: ${adj.nombre_original}`
+            : `Archivo no encontrado en servidor: ${adj.nombre_original}`
+        ),
         { status: 500 }
       );
     }
@@ -71,8 +118,6 @@ async function sincronizarBundleSap(cumplidoId, numeroEntrega, datosRegistro = n
 
   const zipBuffer = await archivosAZip(entradas);
   const nombreZip = nombreZipBundleParaSap(numeroEntrega, cumplidoId);
-  const rutaBundle = rutaBundlePersistente(cumplidoId);
-  fs.writeFileSync(rutaBundle, zipBuffer);
 
   const tipoPrincipal =
     adjuntos.find((a) => a.tipo === 'cumplido')?.tipo || adjuntos[0].tipo || 'cumplido';
@@ -100,14 +145,13 @@ async function sincronizarBundleSap(cumplidoId, numeroEntrega, datosRegistro = n
     }),
   });
 
-  let sapRes;
   try {
-    sapRes = await sapService.enviarAdjuntoSap({
+    const sapRes = await sapService.enviarAdjuntoSap({
       numeroEntrega,
       descripcion,
       archivo: {
         nombreOriginal: nombreZip,
-        ruta: rutaBundle,
+        buffer: zipBuffer,
         mimeType: 'application/zip',
         esZip: true,
         archivosInternos: entradas.map((e) => path.basename(e.name)),
@@ -125,12 +169,15 @@ async function sincronizarBundleSap(cumplidoId, numeroEntrega, datosRegistro = n
       { cumplidoId, sapDocId: sapRes.sapDocId }
     );
 
+    await purgarArchivosLocalesTrasSyncOk(cumplidoId);
+
     return {
       estado: 'ok',
       sapDocId: sapRes.sapDocId,
       totalArchivos: entradas.length,
       nombreZip,
       mensaje: sapRes.mensaje,
+      archivosPurgados: true,
     };
   } catch (err) {
     const esTimeout = err.code === 'SAP_ADJUNTOS_TIMEOUT';
@@ -301,4 +348,35 @@ export async function reintentarSyncRegistro(cumplidoId) {
   );
   if (!rows.length) return null;
   return sincronizarBundleSap(cumplidoId, rows[0].numero_entrega);
+}
+
+/**
+ * Limpia disco de adjuntos ya sincronizados a SAP (estado_sync_sap = ok)
+ * que aún tengan archivo local. Útil una vez tras desplegar esta versión.
+ */
+export async function purgarArchivosYaSincronizados({ limit = 1000 } = {}) {
+  if (!config.upload.purgeAfterSapOk) {
+    return { registros: 0, archivos: 0, omitido: true };
+  }
+
+  const ids = await query(
+    `SELECT DISTINCT registro_cumplido_id AS id
+     FROM pc_adjunto
+     WHERE estado_sync_sap = 'ok'
+       AND ruta_almacenamiento IS NOT NULL
+       AND ruta_almacenamiento <> ''
+       AND ruta_almacenamiento <> 'purged'
+     LIMIT ${Number(limit) || 1000}`
+  );
+
+  let archivos = 0;
+  for (const row of ids) {
+    const r = await purgarArchivosLocalesTrasSyncOk(row.id);
+    archivos += r.purged || 0;
+  }
+
+  console.info(
+    `[adjuntos] Purga legacy: ${ids.length} registro(s), ${archivos} archivo(s) eliminado(s)`
+  );
+  return { registros: ids.length, archivos, omitido: false };
 }

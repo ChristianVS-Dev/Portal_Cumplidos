@@ -83,11 +83,7 @@ async function enviarAdjuntoSapReal({ numeroEntrega, archivo, descripcion, tipo 
     );
   }
 
-  const ruta = archivo?.ruta;
   const nombre = archivo?.nombreOriginal || 'adjunto.zip';
-  if (!ruta || !fs.existsSync(ruta)) {
-    throw Object.assign(new Error('Archivo ZIP no encontrado para envío a SAP'), { status: 500 });
-  }
   if (archivo?.esZip && !nombre.toLowerCase().endsWith('.zip')) {
     throw Object.assign(new Error('SAP requiere adjuntos en formato .zip'), {
       status: 400,
@@ -95,7 +91,19 @@ async function enviarAdjuntoSapReal({ numeroEntrega, archivo, descripcion, tipo 
     });
   }
 
-  const buffer = fs.readFileSync(ruta);
+  let buffer = archivo?.buffer;
+  if (!buffer?.length && archivo?.ruta) {
+    if (!fs.existsSync(archivo.ruta)) {
+      throw Object.assign(new Error('Archivo ZIP no encontrado para envío a SAP'), { status: 500 });
+    }
+    buffer = fs.readFileSync(archivo.ruta);
+  }
+  if (!buffer?.length) {
+    throw Object.assign(new Error('Archivo ZIP vacío o no disponible para envío a SAP'), {
+      status: 500,
+    });
+  }
+
   const form = new FormData();
   form.append('file', new Blob([buffer], { type: 'application/zip' }), nombre);
   form.append('descripcion', descripcion || buildDescripcionAdjuntoFallback(numeroEntrega, tipo));
