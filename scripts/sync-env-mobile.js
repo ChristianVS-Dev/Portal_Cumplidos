@@ -76,13 +76,12 @@ if (!fs.existsSync(source)) {
 
 const vars = parseEnvFile(source);
 const apiUrl = buildApiUrl(vars);
-const portalKey = vars.PORTAL_API_KEY || '';
 
 const content = `# Generado por: npm run sync:env:mobile
 # APK → API Node del portal (Docker en su PC/servidor). MySQL/SSH solo en el contenedor api.
+# La sesión vive en una cookie HttpOnly del API. No copiar claves al cliente.
 
 VITE_API_URL=${apiUrl}
-VITE_PORTAL_API_KEY=${portalKey}
 `;
 
 fs.writeFileSync(target, content, 'utf8');

@@ -36,13 +36,18 @@ export default defineConfig(({ mode }) => {
     server: {
       host: true,
       port: 5173,
+      headers: {
+        'Referrer-Policy': 'no-referrer',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+      },
       watch: {
         usePolling: process.env.CHOKIDAR_USEPOLLING === 'true',
       },
       proxy: {
         '/api': {
           target: apiProxyTarget,
-          changeOrigin: true,
+          xfwd: true,
         },
       },
     },

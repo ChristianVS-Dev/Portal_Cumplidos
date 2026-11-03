@@ -20,7 +20,7 @@
     "docker:logs:web": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f web",
     "pack:server": "powershell -ExecutionPolicy Bypass -File scripts/pack-for-server.ps1",
     "docker:intiva": "docker compose --profile intiva --env-file .env.docker up -d --build intiva-tunnel api web",
-    "docker:dev:all": "npm run sync:env && docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile intiva --env-file .env.docker up -d --build intiva-tunnel api web",
+    "docker:dev:all": "npm run sync:env && docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.docker up -d --build api web",
     "docker:dev:mobile": "npm run sync:env:mobile && npm run mobile:sync",
     "docker:intiva:logs": "docker compose --profile intiva logs -f intiva-tunnel api",
     "db:init": "npm run db:init --prefix backend",

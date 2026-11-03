@@ -1,0 +1,403 @@
+body:has(.acceso-root) {
+  background: #0c1730;
+  overflow: hidden;
+}
+
+.acceso-root {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+  --navy: #10203f;
+  --navy-2: #16294f;
+  --gold: #cfa583;
+  --gold-2: #b8905f;
+  --ink: #1b2740;
+  --muted: #7a8494;
+  --line: #e3e6ec;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #0c1730;
+  color: var(--ink);
+  font-family: "Montserrat", Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+.acceso-root--espera {
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+
+.acceso-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: calc(18px + env(safe-area-inset-top)) 48px 18px;
+  background: linear-gradient(180deg, var(--navy) 0%, var(--navy-2) 100%);
+}
+
+.acceso-marca {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.acceso-marca img {
+  display: block;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex: 0 0 auto;
+}
+
+.acceso-marca-linea {
+  width: 1.5px;
+  height: 38px;
+  background: rgba(207, 165, 131, 0.45);
+  flex: 0 0 auto;
+}
+
+.acceso-marca-nombre {
+  color: #fff;
+  font-family: "Poppins", "Montserrat", Arial, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.acceso-marca-nombre em {
+  color: var(--gold);
+  font-style: normal;
+}
+
+.acceso-nav {
+  display: flex;
+  gap: 28px;
+}
+
+.acceso-nav button {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--gold);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.acceso-nav button.is-active,
+.acceso-nav button:hover { opacity: 0.75; }
+.acceso-nav button:disabled,
+.acceso-nav button:disabled:hover { opacity: 0.35; cursor: default; }
+
+.acceso-rol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 0 0 18px;
+  padding: 4px;
+  background: #f3f5f8;
+  border-radius: 12px;
+}
+.acceso-rol button {
+  border: 0;
+  background: transparent;
+  border-radius: 9px;
+  padding: 9px 8px;
+  color: #5c6b82;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.acceso-rol button.is-active {
+  background: #10203f;
+  color: #fff;
+}
+.acceso-rol button:disabled { cursor: default; }
+
+.acceso-nav svg { width: 18px; height: 18px; }
+
+.acceso-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.acceso-carousel,
+.acceso-slide {
+  position: absolute;
+  inset: 0;
+}
+
+.acceso-slide {
+  opacity: 0;
+  transition: opacity 1.6s ease-in-out;
+}
+
+.acceso-slide.is-active { opacity: 1; }
+
+.acceso-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.acceso-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(6, 12, 26, 0.35) 0%, rgba(6, 12, 26, 0.08) 45%, rgba(6, 12, 26, 0.02) 60%);
+  pointer-events: none;
+}
+
+.acceso-dots {
+  position: absolute;
+  left: 48px;
+  bottom: 28px;
+  display: flex;
+  gap: 8px;
+  z-index: 5;
+}
+
+.acceso-dots button {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.acceso-dots button.is-active { background: #fff; }
+
+.acceso-card-wrap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: 40px 64px 40px 0;
+  z-index: 6;
+}
+
+.acceso-card {
+  width: 420px;
+  max-width: 90vw;
+  max-height: calc(100dvh - 120px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 14px;
+  border-left: 6px solid var(--gold);
+  box-shadow: 0 30px 60px rgba(6, 12, 30, 0.35);
+  padding: 36px 40px 30px;
+}
+
+.acceso-card h1 {
+  margin: 0;
+  text-align: center;
+  color: var(--navy);
+  font-family: "Poppins", "Montserrat", Arial, sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.acceso-card .acceso-sub {
+  margin: 10px 0 22px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.acceso-field {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.acceso-field label {
+  position: absolute;
+  top: 7px;
+  left: 16px;
+  font-size: 11px;
+  color: var(--gold-2);
+  pointer-events: none;
+}
+
+.acceso-input {
+  width: 100%;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  padding: 22px 14px 8px;
+  font-size: 15px;
+  color: var(--ink);
+  background: #fff;
+  font-family: inherit;
+}
+
+.acceso-field.is-focused .acceso-input {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(16, 32, 63, 0.08);
+}
+
+.acceso-input::placeholder { color: #b7bdc7; }
+
+.acceso-field--clave .acceso-input { padding-right: 72px; }
+
+.acceso-ver {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-30%);
+  border: 0;
+  background: none;
+  color: var(--navy);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.acceso-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 4px 0 18px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.acceso-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--navy);
+}
+
+.acceso-carga {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eef3f8;
+  color: var(--navy);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.acceso-carga-giro {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border: 2px solid #c5d0dc;
+  border-top-color: var(--navy);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: acceso-gira 0.8s linear infinite;
+}
+@keyframes acceso-gira {
+  to { transform: rotate(360deg); }
+}
+
+.acceso-submit {
+  width: 100%;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.acceso-submit:hover { background: #0b1730; }
+.acceso-submit:disabled { opacity: 0.65; cursor: wait; }
+
+.acceso-links {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.9;
+}
+
+.acceso-links button {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.acceso-links .acceso-olvido {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  text-align: center;
+  color: var(--ink);
+  font-weight: 400;
+}
+
+.acceso-links button:hover { text-decoration: underline; }
+
+.acceso-alerta,
+.acceso-ok {
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 14px;
+}
+
+.acceso-alerta {
+  background: #fdecea;
+  color: #8a1f11;
+}
+
+.acceso-ok {
+  background: #eef6f0;
+  color: #1d4d32;
+}
+
+@media (max-width: 860px) {
+  .acceso-header { padding: calc(16px + env(safe-area-inset-top)) 20px 16px; }
+  .acceso-marca { gap: 10px; }
+  .acceso-marca img { width: 48px; height: 48px; }
+  .acceso-marca-linea { height: 28px; }
+  .acceso-marca-nombre { font-size: 16px; }
+  .acceso-nav { gap: 16px; }
+  .acceso-nav .acceso-label { display: none; }
+  .acceso-card-wrap {
+    position: absolute;
+    inset: 0;
+    padding: 24px 16px;
+    align-items: center;
+    justify-content: center;
+  }
+  .acceso-stage { overflow: hidden; }
+  .acceso-dots { left: 20px; }
+  .acceso-card { max-height: calc(100dvh - 96px); }
+}

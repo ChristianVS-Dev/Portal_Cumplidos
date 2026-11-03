@@ -6,6 +6,7 @@ import * as entregasExterna from './entregas-externa.service.js';
 import {
   mapEntregaCabecera,
   mapEntregaToSap,
+  mapTransporteVista,
   normalizarTipoEntrega,
   normalizarCliente,
 } from '../domain/entrega-display.js';
@@ -188,11 +189,44 @@ export async function consultarPorVbeln(vbeln) {
   }
 }
 
+function vistaDesdeDocumento(vbeln, doc) {
+  const transporteRaw = doc.transporte;
+  const vbelnNorm = String(vbeln).trim();
+  const sap = mapEntregaToSap(doc.entrega, transporteRaw);
+  sap.fuente = 'ENTREGAS_API';
+  sap.tipoEntrega = normalizarTipoEntrega(doc.entrega.tipo_entrega);
+  sap.items = doc.items;
+  const sapFront = { ...sap };
+  delete sapFront.entregaRaw;
+  delete sapFront.transporteRaw;
+
+  return toJsonSafe({
+    encontrado: true,
+    tipo: 'entrega',
+    vbeln: vbelnNorm,
+    tknum: transporteRaw.tknum,
+    entrega: doc.entrega,
+    entregaVista: mapEntregaCabecera(doc.entrega),
+    cliente: normalizarCliente(doc.entrega.cliente),
+    items: doc.items,
+    transporte: mapTransporteVista(transporteRaw),
+    entregas: [],
+    totalEntregas: 0,
+    sap: sapFront,
+    entregaLocal: null,
+    registro: null,
+    guardadoEnMysql: false,
+    gestionVisitas: null,
+  });
+}
+
 async function consultarPorVbelnInterno(vbeln) {
   const doc = await entregasExterna.consultarEntrega(vbeln);
   if (!doc) {
-    return { encontrado: false, tipo: 'entrega' };
+    return { encontrado: false, tipo: 'entrega', motivo: 'sin_documento' };
   }
+
+  if (!config.persistirCumplidos) return vistaDesdeDocumento(vbeln, doc);
 
   const tknum = doc.transporte.tknum;
   const ruta = await transportesService.consultarTransporte(tknum);

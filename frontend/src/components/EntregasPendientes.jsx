@@ -1,3 +1,14 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+const TAMANOS = [10, 20, 50];
+
+function sinAcentos(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 export default function EntregasPendientes({
   entregas = [],
   totalEntregas = 0,
@@ -5,9 +16,63 @@ export default function EntregasPendientes({
   activoVbeln,
   onSeleccionar,
   onVerDetalle,
+  consultandoVbeln = null,
   cargando = false,
+  titulo = 'Entregas pendientes',
+  icono = 'bi-list-check',
+  hint = (
+    <>
+      Otras entregas del mismo transporte. Seleccione una para dar seguimiento al cumplido o use{' '}
+      <strong>Ver detalle</strong> para ver los materiales.
+    </>
+  ),
+  vacio = 'Consulte un número de entrega válido para ver el transporte.',
+  separado = true,
+  controles = false,
+  className = '',
+  textoBadge = '',
 }) {
+  const [consulta, setConsulta] = useState('');
+  const [tamano, setTamano] = useState(10);
+  const [pagina, setPagina] = useState(1);
   const total = totalEntregas || entregas.length;
+  const filtradas = useMemo(() => {
+    const texto = sinAcentos(consulta.trim());
+    if (!texto) return entregas;
+    return entregas.filter((item) =>
+      sinAcentos(
+        [
+          item.vbeln,
+          item.numero,
+          item.cliente,
+          item.direccion,
+          item.ciudad,
+          item.ruta,
+          item.estado,
+          item.fechaCreacion,
+        ].join(' ')
+      ).includes(texto)
+    );
+  }, [consulta, entregas]);
+  const paginas = Math.max(1, Math.ceil(filtradas.length / tamano));
+  const paginaVisible = Math.min(pagina, paginas);
+  const desde = filtradas.length === 0 ? 0 : (paginaVisible - 1) * tamano;
+  const visibles = filtradas.slice(desde, desde + tamano);
+  const mostrarControles = entregas.length > 0 && (controles || entregas.length > 10);
+
+  const entregaActiva = useRef(activoVbeln);
+
+  useEffect(() => {
+    setPagina(1);
+  }, [consulta, tamano]);
+
+  useEffect(() => {
+    if (entregaActiva.current === activoVbeln) return;
+    entregaActiva.current = activoVbeln;
+    if (!activoVbeln) return;
+    const indice = filtradas.findIndex((item) => String(item.vbeln || item.numero) === String(activoVbeln));
+    if (indice >= 0) setPagina(Math.floor(indice / tamano) + 1);
+  }, [activoVbeln, filtradas, tamano]);
   const esEntregaFallida = (item) =>
     item.estadoProceso === 'cumplida' && item.estadoResultado === 'no_contesto';
 
@@ -26,28 +91,61 @@ export default function EntregasPendientes({
   };
 
   return (
-    <div className="pendientes-block">
+    <div className={`pendientes-block${separado ? '' : ' sin-separador'}${className ? ` ${className}` : ''}`}>
       <div className="section-title">
-        <i className="bi bi-list-check" /> Entregas pendientes
-        {total > 0 && <span className="pendientes-badge">{total} en ruta</span>}
+        <i className={`bi ${icono}`} /> {titulo}
+        {total > 0 && <span className="pendientes-badge">{textoBadge || `${total} en ruta`}</span>}
       </div>
-      <p className="pendientes-hint">
-        Otras entregas del mismo transporte. Seleccione una para dar seguimiento al cumplido o use{' '}
-        <strong>Ver detalle</strong> para ver los materiales.
-      </p>
+      <p className="pendientes-hint">{hint}</p>
+
+      {mostrarControles && !cargando && entregas.length > 0 && (
+        <div className="pendientes-toolbar">
+          <label className="pendientes-buscar">
+            <i className="bi bi-search" aria-hidden />
+            <input
+              type="search"
+              value={consulta}
+              onChange={(event) => setConsulta(event.target.value)}
+              placeholder="Buscar número, cliente o dirección"
+              aria-label="Buscar entregas"
+            />
+          </label>
+          <label className="pendientes-tamano">
+            Ver
+            <select
+              value={tamano}
+              onChange={(event) => setTamano(Number(event.target.value))}
+              aria-label="Entregas por página"
+            >
+              {TAMANOS.map((opcion) => (
+                <option key={opcion} value={opcion}>
+                  {opcion}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
 
       {cargando ? (
         <div className="search-loading">Actualizando entregas...</div>
       ) : entregas.length === 0 ? (
         <div className="pendientes-empty">
           <i className="bi bi-inbox" />
-          Consulte un número de entrega válido para ver el transporte.
+          {vacio}
+        </div>
+      ) : filtradas.length === 0 ? (
+        <div className="pendientes-empty">
+          <i className="bi bi-search" />
+          Ninguna entrega coincide con la búsqueda.
         </div>
       ) : (
+        <>
         <ul className="pendientes-list">
-          {entregas.map((item) => {
+          {visibles.map((item) => {
             const id = item.id || item.vbeln;
             const esActiva = activoVbeln && String(activoVbeln) === String(item.vbeln);
+            const consultandoEsta = consultandoVbeln && String(consultandoVbeln) === String(item.vbeln || item.numero);
             const estadoClase = esEntregaFallida(item)
               ? 'entrega-fallida'
               : item.estadoProceso || 'sin_iniciar';
@@ -108,6 +206,7 @@ export default function EntregasPendientes({
                       type="button"
                       className="btn btn-sec btn-sm"
                       onClick={() => onVerDetalle?.(item)}
+                      disabled={Boolean(consultandoVbeln)}
                     >
                       <i className="bi bi-eye-fill" /> Ver detalle
                     </button>
@@ -116,8 +215,10 @@ export default function EntregasPendientes({
                         type="button"
                         className="btn btn-pri btn-sm"
                         onClick={() => onSeleccionar(item)}
+                        disabled={Boolean(consultandoVbeln)}
                       >
-                        <i className="bi bi-check2" /> Seleccionar
+                        <i className={`bi ${consultandoEsta ? 'bi-hourglass-split' : 'bi-check2'}`} />
+                        {consultandoEsta ? 'Consultando...' : 'Seleccionar'}
                       </button>
                     )}
                     {esActiva && (
@@ -131,6 +232,30 @@ export default function EntregasPendientes({
             );
           })}
         </ul>
+        {filtradas.length > tamano && (
+          <div className="pendientes-paginacion">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setPagina((actual) => Math.max(1, actual - 1))}
+              disabled={paginaVisible <= 1}
+            >
+              Anterior
+            </button>
+            <span>
+              {desde + 1}–{Math.min(desde + tamano, filtradas.length)} de {filtradas.length}
+            </span>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setPagina((actual) => Math.min(paginas, actual + 1))}
+              disabled={paginaVisible >= paginas}
+            >
+              Siguiente
+            </button>
+          </div>
+        )}
+        </>
       )}
     </div>
   );

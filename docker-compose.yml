@@ -57,6 +57,7 @@ services:
     environment:
       PORT: 3001
       NODE_ENV: production
+      MYSQL_ENABLED: ${MYSQL_ENABLED:-false}
       MYSQL_HOST: ${MYSQL_HOST:-mysql}
       MYSQL_PORT: ${MYSQL_PORT:-3306}
       MYSQL_USER: ${MYSQL_USER:-portal_user}
@@ -89,6 +90,10 @@ services:
       RATE_LIMIT_ADJUNTOS_MAX: ${RATE_LIMIT_ADJUNTOS_MAX:-60}
       UPLOAD_DIR: /app/uploads
       SOPORTE_EMAIL: ${SOPORTE_EMAIL:-soporte.logistica@grupodecor.com}
+      AGENDA_API_BASE_URL: ${AGENDA_API_BASE_URL:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:-}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -109,8 +114,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        VITE_PORTAL_API_KEY: ${PORTAL_API_KEY:-}
     container_name: portal_cumplidos_web
     restart: unless-stopped
     ports:

@@ -20,12 +20,12 @@ function PreviewCard({ file, onRemove, onPreview }) {
             src={url}
             alt=""
             {...PREVIEW_IMG_PROPS}
-            onClick={() => onPreview({ src: url, name: file.name })}
+            onClick={() => onPreview?.({ src: url, name: file.name })}
           />
         ) : (
           <div className="prev-img prev-img-loading" aria-hidden />
         )}
-        <button type="button" className="prev-remove" onClick={onRemove}>
+        <button type="button" className="prev-remove" onClick={onRemove} aria-label="Quitar archivo">
           ×
         </button>
         <div className="prev-badge">
@@ -45,7 +45,7 @@ function PreviewCard({ file, onRemove, onPreview }) {
         <div className="prev-pdf-name">{file.name}</div>
         <div style={{ fontSize: '0.55rem', color: '#90a4ae' }}>{Math.round(file.size / 1024)} KB</div>
       </div>
-      <button type="button" className="prev-remove" onClick={onRemove}>
+      <button type="button" className="prev-remove" onClick={onRemove} aria-label="Quitar archivo">
         ×
       </button>
     </div>
@@ -56,7 +56,17 @@ function filePreviewKey(file) {
   return `${file.name}-${file.size}-${file.lastModified}`;
 }
 
-export default function FileDropZone({ files, onChange, onPreview, onFileAdded, disabled }) {
+export default function FileDropZone({
+  files,
+  onChange,
+  onPreview,
+  onFileAdded,
+  disabled,
+  title = 'Arrastra o selecciona archivos',
+  disabledTitle = 'Consulte primero el número de entrega',
+  hint = 'PDF, JPG, PNG · se guardan al seleccionar',
+  buttonLabel = 'Seleccionar archivos',
+}) {
   const inputRef = useRef(null);
 
   const addFiles = async (list) => {
@@ -107,13 +117,11 @@ export default function FileDropZone({ files, onChange, onPreview, onFileAdded, 
         <div className="drop-icon">
           <i className="bi bi-cloud-arrow-up-fill" />
         </div>
-        <div className="drop-title">
-          {disabled ? 'Consulte primero el número de entrega' : 'Arrastra o selecciona archivos'}
-        </div>
-        <div className="drop-sub">PDF, JPG, PNG · se guardan al seleccionar</div>
+        <div className="drop-title">{disabled ? disabledTitle : title}</div>
+        <div className="drop-sub">{hint}</div>
         {!disabled && (
           <div className="drop-btn">
-            <i className="bi bi-paperclip" /> Seleccionar archivos
+            <i className="bi bi-paperclip" /> {buttonLabel}
           </div>
         )}
         <input

@@ -1,5 +1,8 @@
 import { config } from '../config/index.js';
+import { crearCache } from '../utils/cacheCorta.js';
 import { entregasApiReadHeaders, mensajeError401Entregas } from '../utils/entregasApiClient.js';
+
+const cacheEntrega = crearCache({ ttlMs: 20_000, max: 300 });
 
 const MOCK_ENTREGA = {
   success: true,
@@ -104,31 +107,46 @@ async function consultarReal(vbeln) {
     return normalizar(json);
   } catch (err) {
     clearTimeout(timeout);
-    if (err.name === 'AbortError') {
-      const seg = Math.round(timeoutMs / 1000);
-      console.warn('[entregas-externa] Timeout consulta', url, `${seg}s`);
+    if (err.status) throw err;
+    const code = err.cause?.code || err.code || '';
+    console.error('[entregas-externa]', code || err.name, err.cause?.message || err.message);
+    const sinRespuesta =
+      err.name === 'AbortError' ||
+      code === 'UND_ERR_CONNECT_TIMEOUT' ||
+      code === 'UND_ERR_HEADERS_TIMEOUT' ||
+      code === 'UND_ERR_BODY_TIMEOUT';
+    if (sinRespuesta) {
       throw Object.assign(
-        new Error(`Tiempo de espera agotado al consultar la entrega (${seg}s)`),
+        new Error(
+          'El servicio de documentos no respondió a tiempo. La página de información no se puede abrir hasta que responda. Intente de nuevo en unos segundos.'
+        ),
         { status: 504, code: 'ENTREGAS_TIMEOUT' }
       );
     }
-    if (err.status) throw err;
     throw Object.assign(
-      new Error('No se pudo conectar con el servicio de entregas. Verifique red o URL.'),
-      { status: 502 }
+      new Error(
+        'No hay comunicación con el servicio de documentos. La página de información no se puede abrir en este momento.'
+      ),
+      { status: 502, code: 'ENTREGAS_RED' }
     );
   }
 }
 
-/** API 1: GET /api/entregas/{vbeln} */
-export async function consultarEntrega(vbeln) {
+/** API 1: GET /api/entregas/{vbeln}. `fresco` ignora la caché (sincronización de pertenencia). */
+export async function consultarEntrega(vbeln, { fresco = false } = {}) {
   const normalizado = String(vbeln).trim();
   if (!normalizado) {
     throw Object.assign(new Error('Número de entrega requerido'), { status: 400 });
   }
 
-  if (config.entregasExterna.useMock) {
-    return consultarMock(normalizado);
-  }
-  return consultarReal(normalizado);
+  return cacheEntrega.obtener(
+    normalizado,
+    () => (config.entregasExterna.useMock ? consultarMock(normalizado) : consultarReal(normalizado)),
+    { fresco }
+  );
+}
+
+export function invalidarConsultaEntrega(vbeln) {
+  const normalizado = String(vbeln || '').trim();
+  if (normalizado) cacheEntrega.invalidar(normalizado);
 }

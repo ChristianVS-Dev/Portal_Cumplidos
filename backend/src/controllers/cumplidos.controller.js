@@ -29,10 +29,15 @@ export async function crear(req, res, next) {
     for (const archivo of req.archivosMapeados || []) {
       validarArchivo(archivo);
     }
-    const resultado = await cumplidosService.crearCumplido(body, req.archivosMapeados || []);
+    const resultado = await cumplidosService.crearCumplido(
+      body,
+      req.archivosMapeados || [],
+      req.acceso
+    );
     const syncSap = resultado.syncSap;
-    let mensaje =
-      body.modo === 'ok'
+    let mensaje = resultado.reemplazo
+      ? `Adjuntos de la entrega ${body.numeroEntrega} reemplazados y enviados de nuevo`
+      : body.modo === 'ok'
         ? `Entrega ${body.numeroEntrega} registrada correctamente`
         : `Novedad en entrega ${body.numeroEntrega} registrada correctamente`;
 
@@ -69,7 +74,7 @@ export async function crear(req, res, next) {
       ok: true,
       registroGuardado: true,
       syncSapOk: syncSap?.estado === 'ok',
-      syncIntentoSapOk: syncIntentoSap?.estado === 'ok',
+      syncIntentoSapOk: syncIntentoSap?.estado === 'ok' || syncIntentoSap?.estado === 'omitido',
       data: resultado,
       mensaje,
       advertenciaSap,
@@ -123,6 +128,8 @@ export async function actualizarBorrador(req, res, next) {
       fechaEntrega,
       horaEntrega,
       modo,
+      datosConductorCorregidos: Boolean(req.body?.datosConductorCorregidos),
+      datosConductorSap: req.body?.datosConductorSap || null,
     });
     res.json({ ok: true, data, mensaje: 'Datos del paso 1 guardados' });
   } catch (err) {

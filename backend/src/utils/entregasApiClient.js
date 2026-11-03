@@ -45,6 +45,14 @@ export function urlAdjuntosEntrega(numeroEntrega) {
   return `${base}/${n}/adjuntos`;
 }
 
+export function urlAdjuntoDocumento(numeroEntrega, docId) {
+  const id = String(docId || '').trim();
+  if (!/^[A-Za-z0-9]{8,64}$/.test(id)) {
+    throw Object.assign(new Error('Identificador de adjunto inválido'), { status: 400 });
+  }
+  return `${urlAdjuntosEntrega(numeroEntrega)}/${encodeURIComponent(id)}`;
+}
+
 /** POST /api/entregas/{vbeln}/intento — registro de intento de entrega en SAP */
 export function urlIntentoEntrega(numeroEntrega) {
   const base = config.entregasExterna.baseUrl.replace(/\/$/, '');
