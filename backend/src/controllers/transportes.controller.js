@@ -1,3 +1,4 @@
+import { transporteDelConductor } from '../domain/conductor-acceso.js';
 import * as cumplidosService from '../services/cumplidos.service.js';
 
 export async function seleccionarEntrega(req, res, next) {
@@ -5,11 +6,13 @@ export async function seleccionarEntrega(req, res, next) {
     const { tknum, vbeln } = req.params;
     const resultado = await cumplidosService.seleccionarEntregaCompleta(tknum, vbeln);
 
-    if (!resultado.encontrado) {
-      return res.status(404).json({
-        ok: false,
-        error: `No se encontró la entrega ${vbeln} en el transporte ${tknum}`,
-      });
+    const propia = transporteDelConductor(req.acceso, {
+      placa: resultado.transporte?.placa || resultado.sap?.placaAsignada || resultado.sap?.placaSap,
+      conductor: resultado.transporte?.conductor,
+      documentoConductor: resultado.sap?.documentoConductor,
+    });
+    if (!resultado.encontrado || !propia) {
+      return res.status(404).json({ ok: false, error: 'Entrega no disponible para esta cuenta' });
     }
 
     res.json({

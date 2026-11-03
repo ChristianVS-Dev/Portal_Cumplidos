@@ -8,10 +8,10 @@ import * as emailService from './email.service.js';
 
 const DEV_USER = {
   id: 'dev-00000000-0000-0000-0000-000000000001',
-  email: 'demo@grupodecor.com',
+  email: String(process.env.DEV_AUTH_EMAIL || '').trim().toLowerCase(),
   nombre: 'Transportista Demo',
   rol: 'transportista',
-  password: 'Decor2025!',
+  password: process.env.DEV_AUTH_PASSWORD || '',
 };
 
 let devPasswordHash = null;
@@ -44,7 +44,7 @@ async function checkMysql() {
 }
 
 function useDevAuth() {
-  return config.auth.devMode || config.nodeEnv === 'development';
+  return config.auth.devMode && config.nodeEnv !== 'production' && Boolean(DEV_USER.email && DEV_USER.password);
 }
 
 async function findByEmail(email) {

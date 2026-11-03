@@ -34,3 +34,13 @@ dist-deploy/
 *.zip
 !backend/package-lock.json
 !frontend/package-lock.json
+
+# Scripts locales de documentación/manual (no desplegar)
+# NO ignorar toda scripts/: sync-env.js, run-android.js, etc. son del proyecto
+scripts/build-manual-docx.py
+scripts/capture-manual-screenshots.mjs
+scripts/enrich-manual-docx.py
+scripts/fix-manual-docx.py
+
+# IDE Android Studio (local; el proyecto Capacitor sí se versiona en app_apk)
+frontend/android/.idea/

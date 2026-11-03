@@ -22,14 +22,31 @@ function buildCorsOrigins() {
 const portalApiKey = (process.env.PORTAL_API_KEY || '').trim();
 const entregasApiToken = (process.env.ENTREGAS_API_TOKEN || portalApiKey).trim();
 
+function smtpSeguro() {
+  const modo = String(process.env.SMTP_SECURE || '').toLowerCase();
+  if (modo === 'true' || modo === 'ssl' || modo === 'smtps') return true;
+  if (modo === 'false' || modo === 'tls' || modo === 'starttls') return false;
+  const puerto = parseInt(process.env.SMTP_PORT || process.env.PORT_SMTP || '587', 10);
+  return puerto === 465;
+}
+
+function remitenteSmtp() {
+  if (process.env.SMTP_FROM) return process.env.SMTP_FROM;
+  const nombre = String(process.env.NAME_SMTP || '').trim();
+  const usuario = String(process.env.SMTP_USER || process.env.USERNAME_SMTP || '').trim();
+  if (nombre && usuario && !nombre.includes('@')) return `${nombre} <${usuario}>`;
+  if (nombre) return nombre;
+  return usuario || 'Portal Cumplidos <noreply@grupodecor.com>';
+}
+
 export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-  corsOrigins: (process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:8080')
-    .split(',')
-    .map((s) => s.trim()),
+  corsOrigins: buildCorsOrigins(),
   mysql: {
+    /** false = no abre el túnel Intiva. El código queda; MYSQL_ENABLED=true lo vuelve a usar. */
+    enabled: process.env.MYSQL_ENABLED === 'true',
     host: process.env.MYSQL_HOST || 'localhost',
     port: parseInt(process.env.MYSQL_PORT || '3306', 10),
     user: process.env.MYSQL_USER || 'root',
@@ -62,6 +79,11 @@ export const config = {
     /** GET consulta con token (la API externa lo exige). false solo para pruebas */
     sendTokenOnRead: process.env.ENTREGAS_API_SEND_TOKEN_ON_READ !== 'false',
   },
+  agenda: {
+    /** Si está vacío, se usa el host de entregas en /api/conductor/entregas. */
+    baseUrl: (process.env.AGENDA_API_BASE_URL || '').trim(),
+    timeoutMs: parseInt(process.env.AGENDA_API_TIMEOUT_MS || '20000', 10),
+  },
   transportes: {
     useMock: process.env.TRANSPORTES_USE_MOCK === 'true',
     baseUrl:
@@ -75,6 +97,7 @@ export const config = {
   },
   /** false = solo consulta APIs externas, no escribe en MySQL al buscar entrega */
   persistirCumplidos:
+    process.env.MYSQL_ENABLED === 'true' &&
     process.env.PERSISTIR_CUMPLIDOS_MYSQL !== 'false' &&
     process.env.PERSISTIR_CUMPLIDOS_MYSQL !== '0',
   upload: {
@@ -93,20 +116,32 @@ export const config = {
     rateLimitBuscarMax: parseInt(process.env.RATE_LIMIT_BUSCAR_MAX || '40', 10),
     rateLimitAdjuntosMax: parseInt(process.env.RATE_LIMIT_ADJUNTOS_MAX || '60', 10),
   },
+  supabase: {
+    url: (process.env.SUPABASE_URL || '').trim(),
+    secretKey: (process.env.SUPABASE_SECRET_KEY || '').trim(),
+  },
+  admin: {
+    apiKey: (process.env.ADMIN_API_KEY || '').trim(),
+  },
   auth: {
     jwtSecret: process.env.JWT_SECRET || 'dev-secret-cambiar-en-produccion',
     jwtExpires: process.env.JWT_EXPIRES || '8h',
     devMode: process.env.AUTH_DEV_MODE === 'true',
     resetExpiresMin: parseInt(process.env.RESET_TOKEN_MIN || '60', 10),
+    confirmExpiresMin: parseInt(process.env.CONFIRM_TOKEN_MIN || '1440', 10),
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
     soporteEmail: process.env.SOPORTE_EMAIL || 'soporte.logistica@grupodecor.com',
+    /** Destino de prueba del aviso cuando se carga un segundo cumplido. */
+    emailNotification: (process.env.EMAIL_NOTIFICATION || '').trim(),
   },
   smtp: {
-    host: process.env.SMTP_HOST || '',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
-    from: process.env.SMTP_FROM || 'Portal Cumplidos <noreply@grupodecor.com>',
+    host: process.env.SMTP_HOST || process.env.HOST_SMTP || '',
+    port: parseInt(process.env.SMTP_PORT || process.env.PORT_SMTP || '587', 10),
+    user: process.env.SMTP_USER || process.env.USERNAME_SMTP || '',
+    pass: process.env.SMTP_PASS || process.env.PASSWORD_SMTP || '',
+    from: remitenteSmtp(),
+    secure: smtpSeguro(),
+    requireTls: String(process.env.SMTP_SECURE || '').toLowerCase() === 'tls',
   },
 };
 
@@ -120,7 +155,7 @@ export function assertProductionSecurity() {
   if (config.auth.jwtSecret === 'dev-secret-cambiar-en-produccion') {
     warnings.push('JWT_SECRET por defecto (solo si activa auth más adelante)');
   }
-  if (!config.mysql.password || config.mysql.password === 'portal_pass') {
+  if (config.mysql.enabled && (!config.mysql.password || config.mysql.password === 'portal_pass')) {
     warnings.push('MYSQL_PASSWORD débil o por defecto');
   }
   if (warnings.length) {

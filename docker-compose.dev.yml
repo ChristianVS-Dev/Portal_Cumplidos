@@ -1,6 +1,10 @@
 # Desarrollo: front con Vite + hot reload (sin rebuild por cada cambio).
-# Uso: npm run docker:dev
+# Uso: npm run docker:dev  |  APK/emulador: npm run docker:dev:all + API en :3001
 services:
+  api:
+    ports:
+      - "3001:3001"
+
   web:
     build:
       context: ./frontend
@@ -10,7 +14,6 @@ services:
       - web_node_modules:/app/node_modules
     environment:
       VITE_API_PROXY_TARGET: http://api:3001
-      VITE_PORTAL_API_KEY: ${PORTAL_API_KEY:-}
       CHOKIDAR_USEPOLLING: "true"
     # !override evita fusionar con "8080:80" del compose base (doble bind = web no arranca)
     ports: !override

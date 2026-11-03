@@ -6,7 +6,7 @@ import { config } from './config/index.js';
 import routes from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import {
-  portalApiKey,
+  origenPermitido,
   rateLimitGeneral,
 } from './middleware/security.js';
 import { assertProductionSecurity } from './config/index.js';
@@ -16,9 +16,12 @@ const app = express();
 assertProductionSecurity();
 app.set('trust proxy', 1);
 
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  referrerPolicy: { policy: 'no-referrer' },
+}));
 app.use(cors({ origin: config.corsOrigins, credentials: true }));
-app.use(portalApiKey);
+app.use(origenPermitido);
 app.use(rateLimitGeneral);
 app.use(morgan(config.nodeEnv === 'development' ? 'dev' : 'combined'));
 app.use(express.json({ limit: '1mb' }));
@@ -37,7 +40,12 @@ export default function startServer() {
       `  Timeouts ms: entregas=${config.entregasExterna.timeoutMs}, adjuntos=${config.entregasExterna.adjuntosTimeoutMs}, transportes=${config.transportes.timeoutMs}`
     );
     console.log(`  SAP modo: ${config.sap.useMock ? 'MOCK' : 'REAL'}`);
-    console.log(`  MySQL: ${config.mysql.host}:${config.mysql.port}/${config.mysql.database}`);
+    console.log(
+      config.mysql.enabled
+        ? `  MySQL/Intiva: ${config.mysql.host}:${config.mysql.port}/${config.mysql.database}`
+        : '  MySQL/Intiva: desactivado'
+    );
+    console.log(`  Supabase portal: ${config.supabase.url ? 'configurado' : 'sin SUPABASE_URL'}`);
   });
   return app;
 }

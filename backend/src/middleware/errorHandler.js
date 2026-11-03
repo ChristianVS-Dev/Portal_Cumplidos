@@ -1,16 +1,15 @@
 export function errorHandler(err, _req, res, _next) {
   const status = err.status || err.statusCode || 500;
-  const message = err.message || 'Error interno del servidor';
-
-  if (process.env.NODE_ENV !== 'production') {
-    console.error('[API Error]', err);
-  }
+  const interno = status >= 500;
+  if (interno) console.error('[API Error]', err.status || status, err.code || '', err.message);
+  const message = interno
+    ? 'No se pudo completar la operación'
+    : err.message || 'No se pudo completar la operación';
 
   res.status(status).json({
     ok: false,
     error: message,
-    ...(err.code && { code: err.code }),
-    ...(process.env.NODE_ENV !== 'production' && err.cause && { detail: String(err.cause) }),
+    ...(err.code && !interno && { code: err.code }),
   });
 }
 

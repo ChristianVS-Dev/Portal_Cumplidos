@@ -7,6 +7,7 @@ export default function WizardNav({
   puedeEnviar,
   enviando,
   modo,
+  reemplazo = false,
 }) {
   return (
     <div className="wizard-nav">
@@ -41,6 +42,10 @@ export default function WizardNav({
           {enviando ? (
             <>
               <i className="bi bi-hourglass-split" /> Guardando...
+            </>
+          ) : reemplazo ? (
+            <>
+              <i className="bi bi-arrow-repeat" /> Reemplazar adjuntos
             </>
           ) : modo === 'ok' ? (
             <>

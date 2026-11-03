@@ -1,8 +1,16 @@
-export default function ConnectionBanner({ tipo = 'sin_api' }) {
+export default function ConnectionBanner({ tipo = 'sin_api', detalle = null }) {
   const labels = {
-    sin_api: 'Sin conexión con el servidor',
+    sin_api: 'Sin conexión con el API del portal',
     sin_sap: 'SAP no responde en este momento',
-    general: 'Problema de conectividad detectado',
+    general: 'Sin red en el dispositivo',
+  };
+
+  const hints = {
+    sin_api:
+      'La app no recibe respuesta válida del API (CORS o red). La BD/túnel SSH solo usa el servidor; la APK no se conecta a MySQL. Si apunta a QA: reconstruya el contenedor api en el servidor y verifique CORS. Si es local: docker:dev:all y mobile:sync.',
+    general:
+      'Active Wi‑Fi o datos móviles. Sin red no se puede contactar al servidor del portal.',
+    sin_sap: 'El API del portal responde, pero SAP no está disponible en este momento.',
   };
 
   return (
@@ -11,10 +19,8 @@ export default function ConnectionBanner({ tipo = 'sin_api' }) {
         <i className="bi bi-wifi-off" />
         <div>
           <strong>{labels[tipo] || labels.general}</strong>
-          <span>
-            Verifique su red e intente de nuevo. Los datos del formulario no se enviarán hasta
-            restablecer la conexión.
-          </span>
+          <span>{hints[tipo] || hints.sin_api}</span>
+          {detalle ? <span className="conn-banner-detail">{detalle}</span> : null}
         </div>
       </div>
     </div>

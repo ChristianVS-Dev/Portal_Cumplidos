@@ -1,0 +1,24 @@
+{
+  "appId": "com.grupodecor.portalcumplidos",
+  "appName": "Portal Cumplidos",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http"
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#263238",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    },
+    "Keyboard": {
+      "resize": "body",
+      "resizeOnFullScreen": true
+    }
+  }
+}

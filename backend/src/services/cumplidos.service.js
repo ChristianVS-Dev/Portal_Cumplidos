@@ -4,6 +4,7 @@ import { config } from '../config/index.js';
 import * as sapService from './sap.service.js';
 import * as entregasService from './entregas.service.js';
 import * as adjuntosService from './adjuntos.service.js';
+import { registrarAdjuntosPortal } from './adjuntos-portal.service.js';
 import { toJsonSafe } from '../utils/serialize.js';
 import {
   bindMotivosSqlParams,
@@ -28,6 +29,7 @@ import {
   MAX_VISITAS_NO_CONTESTO,
 } from '../domain/visitas-no-contesto.js';
 import { motivosNovDesdeRegistro } from '../domain/motivos-no-contesto.js';
+import { detectarCorreccionConductor } from '../domain/datos-conductor.js';
 
 function toNum(v) {
   if (v == null) return 0;
@@ -39,11 +41,20 @@ function estadoResultadoDesdeModo(modo) {
 }
 
 /** Estado de visitas y bloqueos (cuenta intentos nov entre registros de la entrega) */
+function gestionSinHistorialMysql() {
+  return buildGestionVisitasResponse(null, {
+    puedeRegistrarVisita: true,
+    puedeRegistrarModoNov: true,
+    entregaFallidaCompletada: false,
+  });
+}
+
 export async function obtenerGestionVisitas(numero) {
   const n = String(numero || '').trim();
   if (!n) {
     return buildGestionVisitasResponse(null, { puedeRegistrarVisita: false });
   }
+  if (!config.mysql.enabled) return gestionSinHistorialMysql();
 
   const rows = await query(
     `SELECT * FROM pc_registro_cumplido
@@ -241,6 +252,7 @@ function avisoRegistroDesdeGestion(gestionVisitas = {}) {
 }
 
 async function cargarHistorialCumplidos(numero, limite = 5) {
+  if (!config.mysql.enabled) return [];
   try {
     return await query(
       `SELECT id, modo, estado_resultado, transportista, placa, fecha_entrega, hora_entrega,
@@ -410,6 +422,44 @@ async function asegurarRegistroEnBorrador(cumplidoId) {
     new Error('El registro ya fue completado. Consulte la entrega para iniciar un nuevo intento.'),
     { status: 400 }
   );
+}
+
+async function snapshotSapConductor(numeroEntrega) {
+  const rows = await query(
+    `SELECT empresa_transportista, transportista_asignado, placa_sap, placa_asignada
+     FROM pc_entrega_sap WHERE numero_entrega = :n LIMIT 1`,
+    { n: numeroEntrega }
+  );
+  return rows[0] || null;
+}
+
+async function auditarCorreccionConductor(cumplidoId, numeroEntrega, datos = {}) {
+  const sapRow = await snapshotSapConductor(numeroEntrega);
+  const fromClient = datos.datosConductorSap || {};
+  const sap = {
+    transportistaEmpresa:
+      fromClient.transportista || sapRow?.empresa_transportista || sapRow?.transportista_asignado,
+    placaSap: fromClient.placa || sapRow?.placa_sap || sapRow?.placa_asignada,
+  };
+  const det = detectarCorreccionConductor(
+    { transportista: datos.transportista, placa: datos.placa },
+    sap
+  );
+  if (!det.corregido) return det;
+
+  await query(
+    `INSERT INTO pc_auditoria (entidad, entidad_id, accion, detalle)
+     VALUES ('pc_registro_cumplido', :id, 'CORREGIR_DATOS_CONDUCTOR', :detalle)`,
+    {
+      id: cumplidoId,
+      detalle: JSON.stringify({
+        numeroEntrega,
+        ...det,
+        marcadoEnCliente: Boolean(datos.datosConductorCorregidos),
+      }),
+    }
+  );
+  return det;
 }
 
 export async function actualizarBorrador(cumplidoId, datos) {
@@ -618,12 +668,25 @@ export async function completarRegistro(cumplidoId, datos) {
     id: cumplidoId,
   });
 
+  const correccionConductor = await auditarCorreccionConductor(cumplidoId, actual.numero_entrega, {
+    transportista,
+    placa,
+    datosConductorSap: datos.datosConductorSap,
+    datosConductorCorregidos: datos.datosConductorCorregidos,
+  });
+
   await query(
     `INSERT INTO pc_auditoria (entidad, entidad_id, accion, detalle)
      VALUES ('pc_registro_cumplido', :id, 'COMPLETAR', :detalle)`,
     {
       id: cumplidoId,
-      detalle: JSON.stringify({ numeroEntrega: actual.numero_entrega, modo, adjuntos: adjuntos.length }),
+      detalle: JSON.stringify({
+        numeroEntrega: actual.numero_entrega,
+        modo,
+        adjuntos: adjuntos.length,
+        terminosVersion: datos.terminosVersion || null,
+        correccionConductor,
+      }),
     }
   );
 
@@ -638,17 +701,14 @@ export async function completarRegistro(cumplidoId, datos) {
 }
 
 /** Registro completo: borrador + adjuntos + completado en una sola operación (paso 3) */
-export async function crearCumplido(datos, archivos = []) {
+export async function crearCumplido(datos, archivos = [], acceso = null) {
   const vbeln = String(datos.numeroEntrega || '').trim();
   if (!vbeln) {
     throw Object.assign(new Error('Falta número de entrega'), { status: 400 });
   }
 
   if (!config.persistirCumplidos) {
-    throw Object.assign(
-      new Error('Debe activar PERSISTIR_CUMPLIDOS_MYSQL para registrar cumplidos'),
-      { status: 503 }
-    );
+    return registrarAdjuntosPortal({ ...datos, numeroEntrega: vbeln }, archivos, acceso);
   }
 
   const gestionPre = await obtenerGestionVisitas(vbeln);

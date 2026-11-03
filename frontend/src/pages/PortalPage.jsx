@@ -2,25 +2,43 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ApiError,
   buscarEntrega,
-  checkApiHealth,
   crearCumplido,
   actualizarBorrador,
   obtenerDetalleEntrega,
+  obtenerSesionConductor,
+  sincronizarAgendaConductor,
+  getConfiguredApiBase,
 } from '../api/client.js';
+import { isNativeApp } from '../platform/config.js';
+import { useAppConnectivity } from '../hooks/useAppConnectivity.js';
 import ConnectionBanner from '../components/ConnectionBanner.jsx';
 import WizardStepper from '../components/WizardStepper.jsx';
 import WizardNav from '../components/WizardNav.jsx';
-import EntregasPendientes from '../components/EntregasPendientes.jsx';
+import ConsultaEntregaModal from '../components/ConsultaEntregaModal.jsx';
 import DetalleEntregaModal from '../components/DetalleEntregaModal.jsx';
 import Lightbox from '../components/Lightbox.jsx';
 import FileDropZone from '../components/FileDropZone.jsx';
 import EvidenciaSlot from '../components/EvidenciaSlot.jsx';
 import BrandLogo from '../components/BrandLogo.jsx';
+import MapaRuta from '../components/MapaRuta.jsx';
+import ViajesHoy from '../components/ViajesHoy.jsx';
+import TerminosModal from '../components/TerminosModal.jsx';
 import ClienteInfoCard from '../components/info/ClienteInfoCard.jsx';
 import TransporteInfoCard from '../components/info/TransporteInfoCard.jsx';
 import EntregaDocCard from '../components/info/EntregaDocCard.jsx';
 import { displayValue } from '../components/info/InfoDl.jsx';
 import { resolveClienteDesdeConsulta } from '../lib/normalizarCliente.js';
+import {
+  payloadCorreccionConductor,
+  sapEmpresaDesdeConsulta,
+  sapPlacaDesdeConsulta,
+} from '../lib/datosConductor.js';
+import {
+  formatearFechaTerminos,
+  guardarAceptacionTerminos,
+  leerAceptacionTerminos,
+  TERMINOS_VERSION,
+} from '../constants/terminos.js';
 import {
   MOTIVOS_NO_CONTESTO,
   motivosNovVacios,
@@ -39,7 +57,6 @@ import {
   aplicarVisitasFormDesdeConsulta,
   payloadVisitasDesdeForm,
   formatearIntentoGuardado,
-  AVISO_REGISTRO_PORTAL,
   cuentaVisitasGestion,
   cuentaVisitasEnForm,
 } from '../constants/visitasNoContesto.js';
@@ -67,16 +84,18 @@ function useClock() {
   };
 }
 
-export default function PortalPage() {
+const aceptacionTerminosInicial = leerAceptacionTerminos();
+
+export default function PortalPage({ acceso = null, onSalir, onAcceso }) {
   const clock = useClock();
   const [paso, setPaso] = useState(1);
-  const [animDir, setAnimDir] = useState('forward');
-  const [apiOnline, setApiOnline] = useState(true);
+  const [animDir, setAnimDir] = useState('');
+  const { apiOnline, deviceOnline, apiReachable, refreshConnectivity, markApiOnline, markApiOffline } =
+    useAppConnectivity();
   const [modo, setModo] = useState('ok');
   const [sapData, setSapData] = useState(null);
   const [cliente, setCliente] = useState(null);
   const [syncMsg, setSyncMsg] = useState('');
-  const [buscando, setBuscando] = useState(false);
   const [pendienteSelId, setPendienteSelId] = useState(null);
   const [transporte, setTransporte] = useState(null);
   const [entregasLista, setEntregasLista] = useState([]);
@@ -86,22 +105,30 @@ export default function PortalPage() {
   const [itemsEntrega, setItemsEntrega] = useState([]);
   const [entregaDetalle, setEntregaDetalle] = useState(null);
   const [modalDetalle, setModalDetalle] = useState(false);
+  const [consultaAbierta, setConsultaAbierta] = useState(false);
   const [modalDetalleVbeln, setModalDetalleVbeln] = useState(null);
   const [modalEntrega, setModalEntrega] = useState(null);
   const [modalItems, setModalItems] = useState([]);
   const [modalCargando, setModalCargando] = useState(false);
-  const [seleccionando, setSeleccionando] = useState(false);
+  const [sincronizandoAgenda, setSincronizandoAgenda] = useState(false);
+  const [consultandoVbeln, setConsultandoVbeln] = useState(null);
   const [form, setForm] = useState({
     num: '', nom: '', pla: '', fec: '', hor: '', obsOk: '', obsNov: '',
   });
+  const [sapConductor, setSapConductor] = useState({ nom: '', pla: '' });
   const [motivosNov, setMotivosNov] = useState(motivosNovVacios);
   const [visitasForm, setVisitasForm] = useState(visitasFormVacios());
   const [cumplidoId, setCumplidoId] = useState(null);
   const [gestionVisitas, setGestionVisitas] = useState(null);
   const [soloLectura, setSoloLectura] = useState(false);
+  const [entregaConfirmada, setEntregaConfirmada] = useState(false);
+  const [fichaAbierta, setFichaAbierta] = useState(false);
+  const [fichaDir, setFichaDir] = useState('entra');
   const [filesOk, setFilesOk] = useState([]);
   const [evidencias, setEvidencias] = useState({});
-  const [terminos, setTerminos] = useState(false);
+  const [terminos, setTerminos] = useState(aceptacionTerminosInicial.aceptado);
+  const [terminosMeta, setTerminosMeta] = useState(aceptacionTerminosInicial);
+  const [mostrarTerminos, setMostrarTerminos] = useState(!aceptacionTerminosInicial.aceptado);
   const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -111,22 +138,37 @@ export default function PortalPage() {
   const progPaso = paso === 1 ? 28 : paso === 2 ? 62 : 100;
 
   const entregaExitosaCerrada = Boolean(gestionVisitas?.entregaExitosaCompletada);
+  const puedeReemplazarAdjuntos = entregaExitosaCerrada || entregaConfirmada;
   const maxIntentosNovAlcanzado =
     (gestionVisitas?.visitasRegistradas ?? 0) >= (gestionVisitas?.maxVisitas ?? 3) &&
     gestionVisitas?.puedeRegistrarModoNov === false;
-  const modoSeleccionBloqueado = entregaExitosaCerrada;
-  const modoNovBloqueado = entregaExitosaCerrada || maxIntentosNovAlcanzado;
+  const modoSeleccionBloqueado = puedeReemplazarAdjuntos;
+  const modoNovBloqueado = puedeReemplazarAdjuntos || maxIntentosNovAlcanzado;
 
   useEffect(() => {
-    (async () => {
-      const online = await checkApiHealth();
-      setApiOnline(online);
-    })();
     const today = new Date().toISOString().slice(0, 10);
     setForm((f) => ({ ...f, fec: f.fec || today }));
   }, []);
 
+  useEffect(() => {
+    const onResume = () => refreshConnectivity();
+    window.addEventListener('portal:resume', onResume);
+    return () => window.removeEventListener('portal:resume', onResume);
+  }, [refreshConnectivity]);
+
+  useEffect(() => {
+    if (!fichaAbierta) return;
+    wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [fichaAbierta, entregaVbeln]);
+
   const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const aceptarTerminos = () => {
+    const rec = guardarAceptacionTerminos();
+    setTerminos(true);
+    setTerminosMeta(rec);
+    setMostrarTerminos(false);
+  };
 
   const idBorradorActivo = () =>
     cumplidoId ||
@@ -143,6 +185,7 @@ export default function PortalPage() {
       fechaEntrega: form.fec,
       horaEntrega: horaParaInput(form.hor) || form.hor || null,
       modo,
+      ...payloadCorreccionConductor(form, sapConductor),
     });
   };
 
@@ -168,21 +211,17 @@ export default function PortalPage() {
 
   /** Precarga empresa transportista y placa desde API (misma fuente que se guarda en BD) */
   const aplicarDatosConductorApi = (d, registroDb = null) => {
-    const t = d.transporte;
-    const sap = d.sap || d.entregaLocal;
-    const transportista =
-      registroDb?.transportista ||
-      t?.transportista?.nombre ||
-      sap?.transportistaEmpresa ||
-      sap?.transportistaAsignado ||
-      '';
-    const placa = registroDb?.placa || t?.placa || sap?.placaAsignada || sap?.placaSap || '';
+    const sapNom = sapEmpresaDesdeConsulta(d);
+    const sapPla = sapPlacaDesdeConsulta(d);
+    const transportista = registroDb?.transportista || sapNom || '';
+    const placa = registroDb?.placa || sapPla || '';
     const fecRaw =
       registroDb?.fechaEntrega ||
-      t?.fechaPlanificada ||
-      sap?.fechaPlanificada ||
+      d.transporte?.fechaPlanificada ||
+      (d.sap || d.entregaLocal)?.fechaPlanificada ||
       null;
     const fec = fechaParaInput(fecRaw) || fechaEntregaAutomatica();
+    setSapConductor({ nom: sapNom, pla: sapPla });
     setForm((f) => ({
       ...f,
       nom: transportista || f.nom,
@@ -209,6 +248,9 @@ export default function PortalPage() {
     setVisitasForm(visitasFormVacios());
     setCumplidoId(null);
     setSoloLectura(false);
+    setEntregaConfirmada(false);
+    setSapConductor({ nom: '', pla: '' });
+    setFichaAbierta(false);
   };
 
   const aplicarResultadoEntrega = (d, mensaje) => {
@@ -217,6 +259,10 @@ export default function PortalPage() {
     setEvidencias({});
     const vbeln = d.vbeln || d.entrega?.vbeln || d.sap?.numeroEntrega;
     setEntregaVbeln(vbeln);
+    if (vbeln) {
+      setFichaDir('entra');
+      setFichaAbierta(true);
+    }
     setTknum(d.tknum || d.transporte?.tknum);
     setPendienteSelId(vbeln);
     setItemsEntrega(d.items || []);
@@ -241,6 +287,15 @@ export default function PortalPage() {
       }
     }
     setGestionVisitas(gv);
+    const listasAgenda = [
+      ...(acceso?.entregasHoy || acceso?.viajes || []),
+      ...(acceso?.entregasPendientes || []),
+    ];
+    const enAgenda = listasAgenda.find(
+      (viaje) => String(viaje.numeroEntrega || viaje.vbeln || '') === String(vbeln)
+    );
+    const confirmadaEnSap = /entregad/i.test(String(enAgenda?.estado || ''));
+    setEntregaConfirmada(confirmadaEnSap);
     const rb = d.registroBorrador || null;
     aplicarDatosConductorApi(d, rb);
     setForm((f) => ({
@@ -256,7 +311,7 @@ export default function PortalPage() {
         (gv?.cumplidoEnBorrador ? gv.cumplidoId || gv.registroId : null) ||
         null
     );
-    if (gv?.entregaExitosaCompletada) {
+    if (gv?.entregaExitosaCompletada || confirmadaEnSap) {
       setModo('ok');
       setSoloLectura(true);
     } else {
@@ -275,83 +330,39 @@ export default function PortalPage() {
     setSyncMsg(mensaje || '');
   };
 
-  const buscarPorNumero = async (numero) => {
-    const n = numero.trim();
-    if (n.length < 3) {
-      limpiarConsulta();
-      return;
-    }
-    setBuscando(true);
+  const sincronizarAgenda = async () => {
+    setSincronizandoAgenda(true);
     setErr('');
-    setSyncMsg('');
     try {
-      const res = await buscarEntrega(n);
-      const d = res.data;
-      if (d.tipo === 'entrega' && d.encontrado !== false) {
-        aplicarResultadoEntrega(d, res.mensaje);
-        if (!d.guardadoEnMysql) {
-          setSyncMsg(
-            `${res.mensaje || ''} · Solo consulta (sin MySQL). Active PERSISTIR_CUMPLIDOS_MYSQL para registrar.`
-          );
-        }
-        setApiOnline(true);
-        return;
-      }
-
-      aplicarSap(d.sap || d.entregaLocal);
-      setTransporte(null);
-      setEntregasLista([]);
-      setTotalEntregas(0);
-      setTknum(null);
-      setItemsEntrega([]);
-      setEntregaVbeln(d.sap?.numeroEntrega || n);
-      setPendienteSelId(d.sap?.numeroEntrega || n);
-      aplicarDatosConductorApi(d, null);
-      setSyncMsg(res.mensaje || 'Información guardada en MySQL');
-      setApiOnline(true);
+      const res = await sincronizarAgendaConductor();
+      onAcceso?.(res.data);
     } catch (e) {
-      limpiarConsulta();
       setErr(e.message);
     } finally {
-      setBuscando(false);
-    }
-  };
-
-  const onNumChange = (value) => {
-    setField('num', value);
-    if (!value.trim()) limpiarConsulta();
-  };
-
-  const handleConsultar = () => {
-    buscarPorNumero(form.num);
-  };
-
-  const onNumKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleConsultar();
+      setSincronizandoAgenda(false);
     }
   };
 
   const seleccionarPendiente = async (item) => {
-    const vbeln = item.vbeln || item.numero;
-    if (!vbeln) return;
-    setSeleccionando(true);
+    const vbeln = item.vbeln || item.numero || item.numeroEntrega;
+    if (!vbeln || consultandoVbeln) return;
     setErr('');
     setField('num', vbeln);
+    setConsultandoVbeln(vbeln);
     try {
       const res = await buscarEntrega(vbeln);
       aplicarResultadoEntrega(res.data, res.mensaje || `Entrega ${vbeln} activa`);
-      setApiOnline(true);
+      markApiOnline();
     } catch (e) {
-      setErr(e.message);
+      const detalle = e.message || 'No se pudo consultar la entrega.';
+      setErr(detalle.includes(String(vbeln)) ? detalle : `No se pudo abrir la entrega ${vbeln}. ${detalle}`);
     } finally {
-      setSeleccionando(false);
+      setConsultandoVbeln(null);
     }
   };
 
   const abrirDetalleEntrega = async (item) => {
-    const vbeln = item?.vbeln || item?.numero || entregaVbeln;
+    const vbeln = item?.vbeln || item?.numero || item?.numeroEntrega || entregaVbeln;
     if (!vbeln) return;
 
     if (String(vbeln) === String(entregaVbeln) && itemsEntrega.length) {
@@ -427,6 +438,7 @@ export default function PortalPage() {
 
   const irPaso = (nuevo) => {
     setAnimDir(nuevo > paso ? 'forward' : 'back');
+    if (nuevo === 1) setFichaDir('paso');
     setPaso(nuevo);
     setErr('');
     setOk('');
@@ -435,6 +447,10 @@ export default function PortalPage() {
 
   const handleSiguiente = async () => {
     if (paso === 1) {
+      if (entregaVbeln && !fichaAbierta && validarPaso1().length) {
+        setFichaDir('entra');
+        setFichaAbierta(true);
+      }
       const miss = validarPaso1();
       if (miss.length) {
         setErr(`Complete el paso 1: ${miss.join(', ')}.`);
@@ -442,11 +458,6 @@ export default function PortalPage() {
       }
       try {
         await persistirDatosEntregaPaso1();
-        if (entregaVbeln) {
-          const d = await buscarEntrega(entregaVbeln);
-          if (d.gestionVisitas) setGestionVisitas(d.gestionVisitas);
-          if (d.registroBorrador?.cumplidoId) setCumplidoId(d.registroBorrador.cumplidoId);
-        }
       } catch (e) {
         setErr(e.message || 'No se pudieron guardar los datos de entrega.');
         return;
@@ -476,9 +487,6 @@ export default function PortalPage() {
       return;
     }
 
-    if (entregaExitosaCerrada) {
-      return;
-    }
     if (modo === 'nov' && modoNovBloqueado) {
       setErr('Ya se registraron 3 intentos de novedad en entrega. Solo puede registrar entrega exitosa.');
       return;
@@ -499,6 +507,10 @@ export default function PortalPage() {
         ...(modo === 'nov' ? payloadVisitasDesdeForm() : {}),
         descripcionNovedad: modo === 'nov' ? form.obsNov : null,
         terminosAceptados: terminos,
+        terminosVersion: TERMINOS_VERSION,
+        terminosAceptadoAt: terminosMeta?.aceptadoAt || null,
+        reemplazoAdjuntos: puedeReemplazarAdjuntos,
+        ...payloadCorreccionConductor(form, sapConductor),
       };
 
       const archivos = [
@@ -575,7 +587,9 @@ export default function PortalPage() {
       setVisitasForm(visitasFormVacios());
       setGestionVisitas(null);
       setSoloLectura(false);
-      setTerminos(false);
+      setEntregaConfirmada(false);
+      setFichaAbierta(false);
+      setSapConductor({ nom: '', pla: '' });
       setFilesOk([]);
       setEvidencias({});
       setSapData(null);
@@ -591,9 +605,14 @@ export default function PortalPage() {
       setPendienteSelId(null);
       setPaso(1);
       setAnimDir('back');
+      void obtenerSesionConductor()
+        .then((sesion) => onAcceso?.(sesion.data))
+        .catch(() => {
+          /* el envío ya quedó; el conteo se actualiza al sincronizar */
+        });
     } catch (e) {
       setErr(e.message || 'Error al guardar');
-      if (e instanceof ApiError && e.network) setApiOnline(false);
+      if (e instanceof ApiError && e.network) markApiOffline();
     } finally {
       setEnviando(false);
     }
@@ -603,7 +622,6 @@ export default function PortalPage() {
   const faltantesPaso2 = validarPaso2();
   const faltantesPaso3 = validarPaso3();
   const puedeSiguiente =
-    !entregaExitosaCerrada &&
     (paso === 1
       ? faltantesPaso1.length === 0
       : paso === 2
@@ -612,7 +630,16 @@ export default function PortalPage() {
 
   return (
     <div className="pw">
-      {!apiOnline && <ConnectionBanner tipo="sin_api" />}
+      {!apiOnline && (
+        <ConnectionBanner
+          tipo={!deviceOnline ? 'general' : 'sin_api'}
+          detalle={
+            isNativeApp() && deviceOnline && !apiReachable
+              ? `API configurado: ${getConfiguredApiBase()}`
+              : null
+          }
+        />
+      )}
 
       <div className="page-top">
         <div>
@@ -643,6 +670,11 @@ export default function PortalPage() {
                 <div className="status-row">
                   <div className="sdot" />
                   <span className="slbl">{apiOnline ? 'En línea' : 'Sin conexión'}</span>
+                  {onSalir && (
+                    <button type="button" className="btn-link-field" onClick={onSalir}>
+                      Salir
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -690,6 +722,13 @@ export default function PortalPage() {
                 >
                   <i className="bi bi-exclamation-triangle-fill" /> Novedad en entrega
                 </button>
+                <button
+                  type="button"
+                  className="mode-btn mode-btn-consulta"
+                  onClick={() => setConsultaAbierta(true)}
+                >
+                  <i className="bi bi-search" /> Consultar entrega
+                </button>
               </div>
               <div className={`alert-nov ${modo === 'nov' ? 'show' : ''}`}>
                 <i className="bi bi-exclamation-triangle-fill" style={{ color: '#e65100' }} />
@@ -706,13 +745,14 @@ export default function PortalPage() {
           <WizardStepper pasoActual={paso} />
 
           {err && (
-            <div className="err-bar show wizard-feedback">
+            <div className="err-bar show wizard-feedback" role="alert">
               <i className="bi bi-x-octagon-fill" /> {err}
             </div>
           )}
-          {entregaExitosaCerrada && (
-            <p className="alert-registro-portal show wizard-feedback" role="alert">
-              <i className="bi bi-lock-fill" /> {AVISO_REGISTRO_PORTAL} (entrega exitosa registrada)
+          {puedeReemplazarAdjuntos && (
+            <p className="sync-ok mb10 wizard-feedback" role="status">
+              <i className="bi bi-arrow-repeat" /> Esta entrega ya fue confirmada. Puede reemplazar las
+              fotos y enviarlas de nuevo.
             </p>
           )}
           {gestionVisitas?.cumplidoEnBorrador && !entregaExitosaCerrada && (
@@ -753,6 +793,19 @@ export default function PortalPage() {
             </div>
           )}
 
+          {(fichaAbierta || paso > 1) && (
+            <div className="ficha-identidad" aria-label="Empresa y placa según SAP">
+              <div>
+                <span className="ficha-identidad-kicker">Empresa · SAP</span>
+                <strong>{sapConductor.nom || form.nom || '—'}</strong>
+              </div>
+              <div className="ficha-identidad-placa">
+                <span className="ficha-identidad-kicker">Placa · SAP</span>
+                <strong>{sapConductor.pla || form.pla || '—'}</strong>
+              </div>
+            </div>
+          )}
+
           <div className={`wizard-stage wizard-stage-${animDir}`} key={paso}>
             {paso === 1 && (
               <div className="wizard-panel">
@@ -761,149 +814,112 @@ export default function PortalPage() {
                   <span className="step-badge">1 / 3</span>
                 </div>
                 <div className="section-body">
-                  <div className="section-title">
-                    <i className="bi bi-card-list" /> Información del cumplido
-                  </div>
-                  <div className="ig mb10">
-                    <label>
-                      <i className="bi bi-upc" /> Número de entrega <span className="req">*</span>
-                    </label>
-                    <div className="numero-entrega-row">
-                      <input
-                        type="text"
-                        placeholder="Ej: 46620280"
-                        value={form.num}
-                        onChange={(e) => onNumChange(e.target.value)}
-                        onKeyDown={onNumKeyDown}
-                        disabled={buscando}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-pri btn-consultar"
-                        onClick={handleConsultar}
-                        disabled={buscando || form.num.trim().length < 3}
-                      >
-                        {buscando ? (
-                          <>
-                            <i className="bi bi-hourglass-split" /> Consultando...
-                          </>
-                        ) : (
-                          <>
-                            <i className="bi bi-search" /> Consultar
-                          </>
+                  <div className={`ficha-marco ${fichaDir === 'vuelve' ? 'vuelve' : ''}`}>
+                    {!fichaAbierta ? (
+                      <div className="ficha-vista ficha-vista-lista" key="lista">
+                        <ViajesHoy
+                          acceso={acceso}
+                          entregasPortal={entregasLista}
+                          seleccionadoId={null}
+                          activoVbeln={null}
+                          onSeleccionar={seleccionarPendiente}
+                          onVerDetalle={abrirDetalleEntrega}
+                          onSincronizar={sincronizarAgenda}
+                          sincronizando={sincronizandoAgenda}
+                          consultandoVbeln={consultandoVbeln}
+                        />
+                      </div>
+                    ) : (
+                      <div className="ficha-vista ficha-vista-detalle" key={entregaVbeln || 'detalle'}>
+                        <button
+                          type="button"
+                          className="ficha-volver"
+                          onClick={() => {
+                            setFichaDir('vuelve');
+                            setFichaAbierta(false);
+                            setPendienteSelId(null);
+                          }}
+                        >
+                          <i className="bi bi-arrow-left" aria-hidden /> Volver a entregas
+                        </button>
+                        <div className="section-title">
+                          <i className="bi bi-card-list" /> Información del cumplido
+                          {entregaVbeln ? ` · ${entregaVbeln}` : ''}
+                        </div>
+
+                        {syncMsg && !soloLectura && (
+                          <p className="sync-ok mb10">
+                            <i className="bi bi-database-check" /> {syncMsg}
+                          </p>
                         )}
-                      </button>
-                    </div>
-                    <p className="field-hint">Ingrese el Número de entrega y pulse Consultar (o Enter).</p>
-                  </div>
 
-                  {syncMsg && !soloLectura && (
-                    <p className="sync-ok mb10">
-                      <i className="bi bi-database-check" /> {syncMsg}
-                    </p>
-                  )}
+                        {cliente && entregaVbeln && <ClienteInfoCard cliente={cliente} />}
 
-                  {cliente && entregaVbeln && <ClienteInfoCard cliente={cliente} />}
+                        {entregaVbeln && (
+                          <EntregaDocCard
+                            vbeln={entregaVbeln}
+                            entrega={entregaDetalle}
+                            itemsCount={itemsEntrega.length}
+                            gestionVisitas={gestionVisitas}
+                            onVerDetalle={() =>
+                              abrirDetalleEntrega({ vbeln: entregaVbeln, numero: entregaVbeln })
+                            }
+                          />
+                        )}
 
-                  {entregaVbeln && (
-                    <EntregaDocCard
-                      vbeln={entregaVbeln}
-                      entrega={entregaDetalle}
-                      itemsCount={itemsEntrega.length}
-                      gestionVisitas={gestionVisitas}
-                      onVerDetalle={() =>
-                        abrirDetalleEntrega({ vbeln: entregaVbeln, numero: entregaVbeln })
-                      }
-                    />
-                  )}
+                        {transporte && (
+                          <TransporteInfoCard transporte={transporte} totalEntregas={totalEntregas} />
+                        )}
 
-                  {transporte && (
-                    <TransporteInfoCard transporte={transporte} totalEntregas={totalEntregas} />
-                  )}
+                        <div className="g2 mb14">
+                          <div className="ig">
+                            <label>
+                              <i className="bi bi-calendar-event" /> Fecha <span className="req">*</span>
+                            </label>
+                            <input
+                              type="date"
+                              value={form.fec}
+                              readOnly={Boolean(entregaVbeln) || soloLectura}
+                              disabled={Boolean(entregaVbeln) || soloLectura}
+                              onChange={(e) => setField('fec', e.target.value)}
+                            />
+                            {(entregaVbeln || soloLectura) && (
+                              <p className="field-hint">
+                                Definida al consultar la entrega; no se puede modificar.
+                              </p>
+                            )}
+                          </div>
+                          <div className="ig">
+                            <label>
+                              <i className="bi bi-alarm" /> Hora <span className="req">*</span>
+                            </label>
+                            <input
+                              type="time"
+                              value={form.hor}
+                              onChange={(e) => setField('hor', e.target.value)}
+                            />
+                          </div>
+                        </div>
 
-                  <div className="g2 mb10">
-                    <div className="ig">
-                      <label>
-                        <i className="bi bi-person-vcard" /> Empresa / transportista{' '}
-                        <span className="req">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={form.nom}
-                        onChange={(e) => setField('nom', e.target.value)}
-                      />
-                      {transporte?.transportista?.nombre && (
-                        <p className="field-hint">Precargado desde el transporte (SAP).</p>
-                      )}
-                    </div>
-                    <div className="ig">
-                      <label>
-                        <i className="bi bi-textarea" /> Placa <span className="req">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={form.pla}
-                        onChange={(e) => setField('pla', e.target.value)}
-                      />
-                      {transporte?.placa && (
-                        <p className="field-hint">Precargada desde el transporte (SAP).</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="g2 mb14">
-                    <div className="ig">
-                      <label>
-                        <i className="bi bi-calendar-event" /> Fecha <span className="req">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={form.fec}
-                        readOnly={Boolean(entregaVbeln) || soloLectura}
-                        disabled={Boolean(entregaVbeln) || soloLectura}
-                        onChange={(e) => setField('fec', e.target.value)}
-                      />
-                      {(entregaVbeln || soloLectura) && (
-                        <p className="field-hint">
-                          Definida al consultar la entrega; no se puede modificar.
-                        </p>
-                      )}
-                    </div>
-                    <div className="ig">
-                      <label>
-                        <i className="bi bi-alarm" /> Hora <span className="req">*</span>
-                      </label>
-                      <input
-                        type="time"
-                        value={form.hor}
-                        onChange={(e) => setField('hor', e.target.value)}
-                      />
-                    </div>
-                  </div>
+                        {modo === 'nov' &&
+                          (gestionVisitas?.visitas || []).some((v) => v.fecha) && (
+                            <p className="sync-ok mb10" role="status">
+                              <i className="bi bi-geo-alt" /> Intentos guardados en portal:{' '}
+                              {(gestionVisitas.visitas || [])
+                                .filter((v) => v.fecha)
+                                .map((v) => {
+                                  const txt = formatearIntentoGuardado(v);
+                                  return txt ? `Visita ${v.numero} (${txt})` : null;
+                                })
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                          )}
 
-                  {modo === 'nov' &&
-                    (gestionVisitas?.visitas || []).some((v) => v.fecha) && (
-                      <p className="sync-ok mb10" role="status">
-                        <i className="bi bi-geo-alt" /> Intentos guardados en portal:{' '}
-                        {(gestionVisitas.visitas || [])
-                          .filter((v) => v.fecha)
-                          .map((v) => {
-                            const txt = formatearIntentoGuardado(v);
-                            return txt ? `Visita ${v.numero} (${txt})` : null;
-                          })
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
+                        {entregaVbeln && <MapaRuta vbeln={entregaVbeln} />}
+                      </div>
                     )}
-
-                  <EntregasPendientes
-                    entregas={entregasLista}
-                    totalEntregas={totalEntregas}
-                    seleccionadoId={pendienteSelId}
-                    activoVbeln={entregaVbeln}
-                    onSeleccionar={seleccionarPendiente}
-                    onVerDetalle={abrirDetalleEntrega}
-                    cargando={seleccionando}
-                  />
+                  </div>
                 </div>
               </div>
             )}
@@ -919,8 +935,9 @@ export default function PortalPage() {
                     </div>
                     <div className="section-body">
                       <p className="wizard-panel-intro">
-                        Adjunte al menos un cumplido firmado, foto o PDF. Se enviarán al confirmar en el
-                        paso 3.
+                        {puedeReemplazarAdjuntos
+                          ? 'Las fotos nuevas reemplazan el envío anterior. Se envían de nuevo al confirmar.'
+                          : 'Adjunte al menos un cumplido firmado, foto o PDF. Se enviarán al confirmar en el paso 3.'}
                       </p>
                       <FileDropZone
                         files={filesOk}
@@ -1095,49 +1112,85 @@ export default function PortalPage() {
                     )}
                   </div>
 
-                  <div className="tog-row">
-                    <div className="tog">
-                      <span
-                        className="t-track"
-                        style={{ background: terminos ? '#455a64' : '#cfd8dc' }}
-                        onClick={() => setTerminos(!terminos)}
-                        role="button"
-                        tabIndex={0}
-                      />
-                      <span className="t-thumb" style={{ left: terminos ? '19px' : '3px' }} />
+                  {terminos ? (
+                    <div className="terminos-aceptados" role="status">
+                      <i className="bi bi-check-circle-fill" />
+                      <span>
+                        Términos y condiciones aceptados
+                        {terminosMeta?.aceptadoAt
+                          ? ` el ${formatearFechaTerminos(terminosMeta.aceptadoAt)}`
+                          : ''}
+                        {' '}en este dispositivo.
+                      </span>
+                      <button
+                        type="button"
+                        className="btn-link-field"
+                        onClick={() => setMostrarTerminos(true)}
+                      >
+                        Ver términos
+                      </button>
                     </div>
-                    <span className="tog-lbl">
-                      Acepto los términos y condiciones del portal <span className="req">*</span>
-                    </span>
-                  </div>
+                  ) : (
+                    <div className="tog-row">
+                      <div className="tog">
+                        <span
+                          className="t-track"
+                          style={{ background: terminos ? '#455a64' : '#cfd8dc' }}
+                          onClick={() => setMostrarTerminos(true)}
+                          role="button"
+                          tabIndex={0}
+                        />
+                        <span className="t-thumb" style={{ left: terminos ? '19px' : '3px' }} />
+                      </div>
+                      <span className="tog-lbl">
+                        Acepto los{' '}
+                        <button
+                          type="button"
+                          className="btn-link-field"
+                          onClick={() => setMostrarTerminos(true)}
+                        >
+                          términos y condiciones
+                        </button>{' '}
+                        del portal <span className="req">*</span>
+                      </span>
+                    </div>
+                  )}
 
                   <p className="wizard-panel-intro">
-                    Revise el resumen, acepte los términos y pulse{' '}
-                    <strong>{modo === 'ok' ? 'Registrar entrega' : 'Registrar novedad'}</strong> para
-                    guardar en el sistema.
+                    Revise el resumen y pulse{' '}
+                    <strong>
+                      {puedeReemplazarAdjuntos
+                        ? 'Reemplazar adjuntos'
+                        : modo === 'ok'
+                          ? 'Registrar entrega'
+                          : 'Registrar novedad'}
+                    </strong>{' '}
+                    para guardar en el sistema.
                   </p>
                 </div>
               </div>
             )}
           </div>
 
-          <WizardNav
-            paso={paso}
-            modo={modo}
-            onAnterior={() => irPaso(paso - 1)}
-            onSiguiente={handleSiguiente}
-            onEnviar={enviar}
-            puedeSiguiente={puedeSiguiente}
-            puedeEnviar={
-              !entregaExitosaCerrada &&
-              validarPaso1().length === 0 &&
-              validarPaso2().length === 0 &&
-              validarPaso3().length === 0
-            }
-            enviando={enviando}
-          />
+          {(paso > 1 || fichaAbierta) && (
+            <WizardNav
+              paso={paso}
+              modo={modo}
+              onAnterior={() => irPaso(paso - 1)}
+              onSiguiente={handleSiguiente}
+              onEnviar={enviar}
+              puedeSiguiente={puedeSiguiente}
+              reemplazo={puedeReemplazarAdjuntos}
+              puedeEnviar={
+                validarPaso1().length === 0 &&
+                validarPaso2().length === 0 &&
+                validarPaso3().length === 0
+              }
+              enviando={enviando}
+            />
+          )}
 
-          {paso === 1 && !puedeSiguiente && faltantesPaso1.length > 0 && (
+          {paso === 1 && fichaAbierta && !puedeSiguiente && faltantesPaso1.length > 0 && (
             <p className="wizard-hint" role="status">
               <i className="bi bi-info-circle" /> Para continuar complete: {faltantesPaso1.join(', ')}.
             </p>
@@ -1168,6 +1221,8 @@ export default function PortalPage() {
 
       {lb && <Lightbox src={lb.src} name={lb.name} onClose={() => setLb(null)} />}
 
+      <ConsultaEntregaModal abierto={consultaAbierta} onCerrar={() => setConsultaAbierta(false)} />
+
       <DetalleEntregaModal
         abierto={modalDetalle}
         onCerrar={() => setModalDetalle(false)}
@@ -1175,6 +1230,13 @@ export default function PortalPage() {
         entrega={modalEntrega}
         items={modalItems}
         cargando={modalCargando}
+      />
+
+      <TerminosModal
+        abierto={mostrarTerminos}
+        modo={terminos ? 'consulta' : 'obligatorio'}
+        onAceptar={aceptarTerminos}
+        onCerrar={() => setMostrarTerminos(false)}
       />
     </div>
   );

@@ -2,9 +2,6 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
-ARG VITE_PORTAL_API_KEY=
-ENV VITE_PORTAL_API_KEY=$VITE_PORTAL_API_KEY
-
 COPY package*.json ./
 RUN npm ci
 

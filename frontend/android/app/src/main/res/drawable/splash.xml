@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splash_background" />
+    <!-- Logo rectangular centrado (sin máscara circular de Android 12+) -->
+    <item
+        android:width="240dp"
+        android:height="240dp"
+        android:gravity="center">
+        <bitmap
+            android:gravity="fill"
+            android:src="@drawable/splash_logo" />
+    </item>
+</layer-list>

@@ -70,7 +70,7 @@ export function mapTransporteVista(raw) {
     conductor: raw.conductor
       ? {
           nombre: raw.conductor.nombre ?? null,
-          documento: raw.conductor.documento ?? null,
+          documento: raw.conductor.documento || raw.conductor.cedula || null,
           telefono: raw.conductor.telefono ?? null,
         }
       : null,
